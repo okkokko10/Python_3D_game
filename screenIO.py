@@ -1,7 +1,7 @@
 import random
 import pygame
 
-from Quaternions import *
+from orientation import *
 
 
 class ObjectStorage:
@@ -85,6 +85,9 @@ class Updater:
 
     def get_deltaTime(self):
         return self.deltaTime
+
+    def get_events(self):
+        return self.events
 
     def Stop(self):
         self._running = False
@@ -210,16 +213,18 @@ if __name__ == '__main__':
 
     mx, my = 0, 0
 
-    def update(updater: 'Updater', events, deltaTime):
+    def update(updater: 'Updater'):
         canvas = updater.get_canvas()
         inputs = updater.get_inputs()
+        events = updater.get_events()
+        deltaTime = updater.get_deltaTime()
         canvas.Fill((0, 0, 100))
         canvas.LockSurface()
         # C.DrawLines(canvas, points, 5, (100, 0, 100))
         C.DrawDots(canvas, points, 5, (100, 0, 000))
         canvas.UnlockSurface()
-        for e in events:
-            print(e)
+        # for e in events:
+        #     print(e)
         global mx, my
         mdx, mdy = pygame.mouse.get_rel()
         mx += mdx
@@ -240,7 +245,7 @@ if __name__ == '__main__':
 
         return
 
-    Upd = Updater().Setup(update, 40)
+    Upd = Updater().Setup(func=update, framerate=40)
 
     Upd.get_inputs().LockMouse()
 

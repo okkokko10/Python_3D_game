@@ -1,4 +1,4 @@
-from collections import namedtuple
+
 import math
 '''ii = jj = kk = ijk = -1
 
@@ -88,8 +88,14 @@ class Vector(Quaternion):
         # self.k = k
 
     def RotationAround(self: 'Vector', angle):
-        s = math.sin(angle/2)
-        return Quaternion(math.cos(angle/2), self.i*s, self.j*s, self.k*s)
+        "rotation around the vector by the given angle"
+        return self.RotationComplexHalf(math.cos(angle/2), math.sin(angle/2))
+        # s = math.sin(angle/2)
+        # return Quaternion(math.cos(angle/2), self.i*s, self.j*s, self.k*s)
+
+    def RotationComplexHalf(self: 'Vector', x, y):
+        "rotation around the vector by double the argument of complex(x,y)"
+        return Quaternion(x, self.i*y, self.j*y, self.k*y)
 
     def RotatedAroundAxis(self: 'Vector', axis: 'Vector', angle) -> 'Vector':
         rotator = axis.RotationAround(angle)
