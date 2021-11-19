@@ -30,21 +30,21 @@ if __name__ == '__main__':
         # for e in events:
         #     print(e)
         global mx, my
-        mdx, mdy = pygame.mouse.get_rel()
+        mdx, mdy = inputs.get_mouse_movement()
         mx += mdx
         my += mdy
         # C.transform.rotation *= Vector(1,0,0).RotationAround(-mdy/400)*(Vector(0,1,0).RotationAround(-mdx/400))
         rotationX = Vector(0, 1, 0).RotationAround(mx/200)
         rotationY = Vector(1, 0, 0).RotationAround(my/200)
-        WASDvector = Vector(inputs.IsHeld(pygame.K_d)-inputs.IsHeld(pygame.K_a), 0,
-                            inputs.IsHeld(pygame.K_w)-inputs.IsHeld(pygame.K_s))
+        WASDvector = Vector(inputs.keyPressed(pygame.K_d)-inputs.keyPressed(pygame.K_a), 0,
+                            inputs.keyPressed(pygame.K_w)-inputs.keyPressed(pygame.K_s))
 
         C.transform.rotation = rotationX * rotationY
         C.transform.position += rotationX.Rotate(WASDvector*deltaTime*0.001)
 
-        if inputs.IsDown(pygame.K_t):
+        if inputs.keyDown(pygame.K_t):
             inputs.LockMouse()
-        if inputs.IsDown(pygame.K_y):
+        if inputs.keyDown(pygame.K_y):
             inputs.UnlockMouse()
 
         return

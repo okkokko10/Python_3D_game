@@ -126,38 +126,45 @@ class Inputs:
     def __init__(self):
         self.ups = set()
         self.downs = set()
-        self.helds = {}
+        self.pressed = {}
+        self.mouse_movement = [0, 0]
+        self.mouse_position = 0, 0
         pass
 
-    def _setDown(self, key):
+    def _set_keyDown(self, key):
         self.downs.add(key)
-        self.helds[key] = 0
+        self.pressed[key] = 0
         return
 
-    def _setUp(self, key):
+    def _set_keyUp(self, key):
         self.ups.add(key)
         return
 
     def UpdateInputs(self, events, deltaTime):
         for k in self.ups:
-            del self.helds[k]
-        for k in self.helds:
-            self.helds[k] += deltaTime
+            del self.pressed[k]
+        for k in self.pressed:
+            self.pressed[k] += deltaTime
         self.ups.clear()
         self.downs.clear()
+        self.mouse_movement = [0, 0]
         for e in events:
             if e.type == pygame.KEYDOWN:
-                self._setDown(e.key)
+                self._set_keyDown(e.key)
             elif e.type == pygame.KEYUP:
-                self._setUp(e.key)
+                self._set_keyUp(e.key)
+            elif e.type == pygame.MOUSEMOTION:
+                self.mouse_position = e.pos
+                self.mouse_movement[0] += e.rel[0]
+                self.mouse_movement[1] += e.rel[1]
 
-    def IsHeld(self, key):
-        return key in self.helds
+    def keyPressed(self, key):
+        return key in self.pressed
 
-    def IsUp(self, key):
+    def keyUp(self, key):
         return key in self.ups
 
-    def IsDown(self, key):
+    def keyDown(self, key):
         return key in self.downs
 
     def LockMouse(self):
@@ -167,3 +174,8 @@ class Inputs:
     def UnlockMouse(self):
         pygame.mouse.set_visible(True)
         pygame.event.set_grab(False)
+
+    def get_display(self):
+        return pygame.display.get_surface()
+
+    def get_mouse_movement(self): return self.mouse_movement
