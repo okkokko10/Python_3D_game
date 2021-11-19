@@ -1,6 +1,5 @@
 from orientation import *
 from screenIO import *
-import pygame
 
 
 class Camera:
@@ -19,7 +18,7 @@ class Camera:
         return x, y
 
     def DrawLines(self, canvas: 'Canvas', vectors, width, color):
-        poslist = [p for p in (self.ProjectPosition(v) for v in vectors) if p]
+        poslist = self.ProjectPoints(vectors)
         if len(poslist) >= 2:
             canvas.Lines(poslist, width, color)
 
@@ -29,3 +28,11 @@ class Camera:
             if p:
                 canvas.Circle(p, radius, color)
             pass
+
+    def ProjectPoints(self, vectors):
+        return [p for p in (self.ProjectPosition(v) for v in vectors) if p]
+
+    def DrawTexturedPolygon(self, canvas: 'Canvas', vectors, image):
+        poslist = self.ProjectPoints(vectors)
+        if len(poslist) >= 3:
+            canvas.TexturedPolygon(poslist, image)

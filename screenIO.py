@@ -1,4 +1,5 @@
 import pygame
+import pygame.gfxdraw
 
 
 class ObjectStorage:
@@ -7,7 +8,7 @@ class ObjectStorage:
 
 
 class Updater:
-    "use Updater().Setup() to quickly initialize an updater"
+    "use Updater().Setup() to quickly initialize an updater, and updater.Play() to start"
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
     func = None
@@ -103,14 +104,16 @@ class Canvas:
 
     def Lines(self, poslist, width, color):
         closed = False
-        pygame.draw.lines(self.surface, color, closed, [
-                          self.convert(pos) for pos in poslist], width)
+        pygame.draw.lines(self.surface, color, closed, self.convertList(poslist), width)
 
     def Circle(self, pos, radius, color):
         pygame.draw.circle(self.surface, color, self.convert(pos), radius)
 
     def convert(self, pos):
         return (int(pos[0]*self.width)+self.width//2, -int(pos[1]*self.height)+self.height//2)
+
+    def convertList(self, poslist):
+        return [self.convert(pos) for pos in poslist]
 
     def Fill(self, color):
         self.surface.fill(color)
@@ -120,6 +123,11 @@ class Canvas:
 
     def UnlockSurface(self):
         self.surface.unlock()
+
+    def TexturedPolygon(self, poslist, image):
+        tx, ty = 0, 0
+        if len(poslist) >= 3:
+            pygame.gfxdraw.textured_polygon(self.surface, self.convertList(poslist), image, tx, ty)
 
 
 class Inputs:

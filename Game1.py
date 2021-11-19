@@ -3,6 +3,7 @@ from screenIO import *
 from render3D import *
 import pygame
 import random
+import facecamera
 
 if __name__ == '__main__':
 
@@ -14,6 +15,7 @@ if __name__ == '__main__':
     # points += [Vector(i/den, 0, k/den) for i in range(-3*den, 6*den) for k in range(-3*den, 6*den)]
 
     points = [Vector(random.random()*2-1,  random.random()*2-1, random.random()*0.1+2) for _ in range(500)]
+    picturePoints = Vector(0, 0, 0), Vector(0, 1, 0), Vector(1, 1, 0), Vector(1, 0, 0)
 
     mx, my = 0, 0
 
@@ -22,11 +24,7 @@ if __name__ == '__main__':
         inputs = updater.get_inputs()
         events = updater.get_events()
         deltaTime = updater.get_deltaTime()
-        canvas.Fill((0, 0, 100))
-        canvas.LockSurface()
         # C.DrawLines(canvas, points, 5, (100, 0, 100))
-        C.DrawDots(canvas, points, 5, (100, 0, 000))
-        canvas.UnlockSurface()
         # for e in events:
         #     print(e)
         global mx, my
@@ -46,7 +44,12 @@ if __name__ == '__main__':
             inputs.LockMouse()
         if inputs.keyDown(pygame.K_y):
             inputs.UnlockMouse()
-
+        face = facecamera.GetPhotos()
+        canvas.Fill((0, 0, 100))
+        canvas.LockSurface()
+        C.DrawDots(canvas, points, 5, (100, 0, 000))
+        canvas.UnlockSurface()
+        C.DrawTexturedPolygon(canvas, picturePoints, face)
         return
 
     Upd = Updater().Setup(func=update, framerate=40)
