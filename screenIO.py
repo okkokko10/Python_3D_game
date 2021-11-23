@@ -97,6 +97,8 @@ class Canvas:
         self.surface = surface
         self.height = surface.get_height()
         self.width = surface.get_width()
+        self.zoom = self.height
+        self.ratio = self.width / self.height
 
     def Line(self, pos1, pos2, width, color):
         pygame.draw.line(self.surface, color, self.convert(
@@ -110,7 +112,7 @@ class Canvas:
         pygame.draw.circle(self.surface, color, self.convert(pos), radius)
 
     def convert(self, pos):
-        return (int(pos[0]*self.width)+self.width//2, -int(pos[1]*self.height)+self.height//2)
+        return (int(pos[0]*self.zoom)+self.width//2, -int(pos[1]*self.zoom)+self.height//2)
 
     def convertList(self, poslist):
         return [self.convert(pos) for pos in poslist]
@@ -128,6 +130,62 @@ class Canvas:
         tx, ty = 0, 0
         if len(poslist) >= 3:
             pygame.gfxdraw.textured_polygon(self.surface, self.convertList(poslist), image, tx, ty)
+
+    def StretchTexture(self, poslist, image):
+        ''' The corners are in this order:\n
+        3  4\n
+        2  1'''
+        xdensity = 4
+        ydensity = 4
+        xden = 4
+        yden = 4
+        pixellist = self.convertList(poslist)
+        if len(pixellist) != 4:
+            # print('wrong amount')
+            return
+        pxImage = pygame.PixelArray(image)
+        # out = pygame.Surface((800, 800))
+        out = self.surface
+        xsurf, ysurf = out.get_size()
+        pxOut = pygame.PixelArray(out)
+        # a, b, d, c = pixellist
+        d, b, a, c = pixellist
+        ax, ay = a
+        bx, by = b
+        cx, cy = c
+        dx, dy = d
+        x = 0
+        y = 0
+        # (a*(1-y) + b*y)*(1-x)+(c*(1-y)+d*y)*x
+        # a*(1-y) + b*y + ((c-a)*(1-y) + (d-b)*y)*x
+        # a + y * (b-a) + x*(c-a+y*(d+a-c-b))
+        hx = (dx+ax-cx-bx)
+        hy = (dy+ay-cy-by)
+        xsize, ysize = image.get_size()
+        for y in range(0, ysize-yden, ydensity):
+            row = pxImage[y]
+            yd = y/ysize
+            xa = ax + yd * (bx-ax)
+            xk = cx - ax + yd*hx
+            ya = ay + yd * (by-ay)
+            yk = cy - ay + yd*hy
+            for x in range(0, xsize-xden, xdensity):
+                xd = x / xsize
+                X = int(xa+xd*xk)
+                Y = int(ya+xd*yk)
+                if 0 < X < xsurf-xden and 0 < Y < ysurf-yden:
+                    # u = row[x]
+                    # try:
+
+                    pxOut[X:X+xden, Y:Y+yden] = pxImage[x:x+xden, y:y+yden]
+                    # except:
+                    #     print(y, x, xsize, ysize)
+                    #     pass
+
+                pass
+        pxOut.close()
+        pxImage.close()
+        return out
 
 
 class Inputs:

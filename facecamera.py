@@ -20,6 +20,7 @@ def GetPhotos():
     if len(photos) > 2:
         photos.pop(0)
     avg = pygame.transform.average_surfaces(photos)
+    # avg = img
 
     edges = pygame.transform.laplacian(avg)
     avg.blit(edges, (0, 0), special_flags=pygame.BLEND_ADD)

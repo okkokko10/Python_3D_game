@@ -15,7 +15,7 @@ if __name__ == '__main__':
     # points += [Vector(i/den, 0, k/den) for i in range(-3*den, 6*den) for k in range(-3*den, 6*den)]
 
     points = [Vector(random.random()*2-1,  random.random()*2-1, random.random()*0.1+2) for _ in range(500)]
-    picturePoints = Vector(0, 0, 0), Vector(0, 1, 0), Vector(1, 1, 0), Vector(1, 0, 0)
+    picturePoints = Vector(0, 0, 0), Vector(1, 0, 0), Vector(1, 1, 0), Vector(0, 1, 0)
 
     mx, my = 0, 0
 
@@ -52,8 +52,8 @@ if __name__ == '__main__':
         C.DrawTexturedPolygon(canvas, picturePoints, face)
         return
 
-    Upd = Updater().Setup(func=update, framerate=40)
+    Upd = Updater().Setup(func=update, framerate=40, canvas=Canvas(pygame.display.set_mode()))
 
     Upd.get_inputs().LockMouse()
-
+    C.width = Upd.canvas.ratio
     Upd.Play()
