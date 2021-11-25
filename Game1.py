@@ -48,11 +48,11 @@ if __name__ == '__main__':
         canvas.Fill((0, 0, 100))
         canvas.LockSurface()
         C.DrawDots(canvas, points, 5, (100, 0, 000))
+        C.DrawTexturedPolygon(canvas, picturePoints, face.convert())
         canvas.UnlockSurface()
-        C.DrawTexturedPolygon(canvas, picturePoints, face)
         return
 
-    Upd = Updater().Setup(func=update, framerate=40, canvas=Canvas(pygame.display.set_mode()))
+    Upd = Updater().Setup(func=update, framerate=30, canvas=Canvas(pygame.display.set_mode()))
 
     Upd.get_inputs().LockMouse()
     C.width = Upd.canvas.ratio

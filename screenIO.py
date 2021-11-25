@@ -178,6 +178,7 @@ class Canvas:
                     # try:
 
                     pxOut[X:X+xden, Y:Y+yden] = pxImage[x:x+xden, y:y+yden]
+                    # pxOut[X, Y] = pxImage[x, y]
                     # except:
                     #     print(y, x, xsize, ysize)
                     #     pass
