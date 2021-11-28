@@ -31,26 +31,26 @@ class Quaternion:  # (namedtuple('Quaternion', 'r i j k')):
 
     def __mul__(a, b):
         if isinstance(b, Quaternion):
-            r = a.r*b.r - a.i*b.i - a.j*b.j - a.k*b.k
-            i = a.j*b.k - a.k*b.j + a.r*b.i + a.i*b.r
-            j = a.k*b.i - a.i*b.k + a.r*b.j + a.j*b.r
-            k = a.i*b.j - a.j*b.i + a.r*b.k + a.k*b.r
+            r = a.r * b.r - a.i * b.i - a.j * b.j - a.k * b.k
+            i = a.j * b.k - a.k * b.j + a.r * b.i + a.i * b.r
+            j = a.k * b.i - a.i * b.k + a.r * b.j + a.j * b.r
+            k = a.i * b.j - a.j * b.i + a.r * b.k + a.k * b.r
             if isinstance(a, Vector) or isinstance(b, Vector):
                 return Vector.new(r, i, j, k)
             return Quaternion(r, i, j, k)
-        return a.new(a.r*b, a.i*b, a.j*b, a.k*b)
+        return a.new(a.r * b, a.i * b, a.j * b, a.k * b)
 
     def __rmul__(a, b):
-        return a.new(b*a.r, b*a.i, b*a.j, b*a.k)
+        return a.new(b * a.r, b * a.i, b * a.j, b * a.k)
 
     def __truediv__(a, b):
-        return a.new(a.r/b, a.i/b, a.j/b, a.k/b)
+        return a.new(a.r / b, a.i / b, a.j / b, a.k / b)
 
     def __add__(a, b):
-        return a.new(a.r+b.r, a.i+b.i, a.j+b.j, a.k+b.k)
+        return a.new(a.r + b.r, a.i + b.i, a.j + b.j, a.k + b.k)
 
     def __sub__(a, b):
-        return a.new(a.r-b.r, a.i-b.i, a.j-b.j, a.k-b.k)
+        return a.new(a.r - b.r, a.i - b.i, a.j - b.j, a.k - b.k)
 
     @classmethod
     def new(cls, r, i, j, k):
@@ -58,11 +58,11 @@ class Quaternion:  # (namedtuple('Quaternion', 'r i j k')):
         Quaternion.__init__(self, r, i, j, k)
         return self
 
-    def normSq(self): return self.r**2+self.i**2+self.j**2+self.k**2
+    def normSq(self): return self.r**2 + self.i**2 + self.j**2 + self.k**2
     def norm(self): return math.sqrt(self.normSq())
     def conjugate(self): return Quaternion(self.r, -self.i, -self.j, -self.k)
-    def versor(self): return self/self.norm()
-    def reciprocal(self) -> 'Quaternion': return self.conjugate()/self.normSq()
+    def versor(self): return self / self.norm()
+    def reciprocal(self) -> 'Quaternion': return self.conjugate() / self.normSq()
 
     def GetVector(self): return Vector(self.i, self.j, self.k)
 
@@ -89,13 +89,13 @@ class Vector(Quaternion):
 
     def RotationAround(self: 'Vector', angle):
         "rotation around the vector by the given angle"
-        return self.RotationComplexHalf(math.cos(angle/2), math.sin(angle/2))
+        return self.RotationComplexHalf(math.cos(angle / 2), math.sin(angle / 2))
         # s = math.sin(angle/2)
         # return Quaternion(math.cos(angle/2), self.i*s, self.j*s, self.k*s)
 
     def RotationComplexHalf(self: 'Vector', x, y):
         "rotation around the vector by double the argument of complex(x,y)"
-        return Quaternion(x, self.i*y, self.j*y, self.k*y)
+        return Quaternion(x, self.i * y, self.j * y, self.k * y)
 
     def RotatedAroundAxis(self: 'Vector', axis: 'Vector', angle) -> 'Vector':
         rotator = axis.RotationAround(angle)
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     B = Quaternion(1, 2, 3, 4)
     print('B', B)
 
-    C = A*B
+    C = A * B
     print(C)
-    D = A.reciprocal()*C
+    D = A.reciprocal() * C
     print(D)

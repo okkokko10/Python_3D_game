@@ -1,5 +1,6 @@
 import pygame
 import pygame.gfxdraw
+pygame.init()
 
 
 class ObjectStorage:
@@ -99,6 +100,7 @@ class Canvas:
         self.width = surface.get_width()
         self.zoom = self.height
         self.ratio = self.width / self.height
+        self.default_font = pygame.font.Font(None, 20)
 
     def Line(self, pos1, pos2, width, color):
         pygame.draw.line(self.surface, color, self.convert(
@@ -112,7 +114,7 @@ class Canvas:
         pygame.draw.circle(self.surface, color, self.convert(pos), radius)
 
     def convert(self, pos):
-        return (int(pos[0]*self.zoom)+self.width//2, -int(pos[1]*self.zoom)+self.height//2)
+        return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)
 
     def convertList(self, poslist):
         return [self.convert(pos) for pos in poslist]
@@ -159,25 +161,25 @@ class Canvas:
         # (a*(1-y) + b*y)*(1-x)+(c*(1-y)+d*y)*x
         # a*(1-y) + b*y + ((c-a)*(1-y) + (d-b)*y)*x
         # a + y * (b-a) + x*(c-a+y*(d+a-c-b))
-        hx = (dx+ax-cx-bx)
-        hy = (dy+ay-cy-by)
+        hx = (dx + ax - cx - bx)
+        hy = (dy + ay - cy - by)
         xsize, ysize = image.get_size()
-        for y in range(0, ysize-yden, ydensity):
+        for y in range(0, ysize - yden, ydensity):
             row = pxImage[y]
-            yd = y/ysize
-            xa = ax + yd * (bx-ax)
-            xk = cx - ax + yd*hx
-            ya = ay + yd * (by-ay)
-            yk = cy - ay + yd*hy
-            for x in range(0, xsize-xden, xdensity):
+            yd = y / ysize
+            xa = ax + yd * (bx - ax)
+            xk = cx - ax + yd * hx
+            ya = ay + yd * (by - ay)
+            yk = cy - ay + yd * hy
+            for x in range(0, xsize - xden, xdensity):
                 xd = x / xsize
-                X = int(xa+xd*xk)
-                Y = int(ya+xd*yk)
-                if 0 < X < xsurf-xden and 0 < Y < ysurf-yden:
+                X = int(xa + xd * xk)
+                Y = int(ya + xd * yk)
+                if 0 < X < xsurf - xden and 0 < Y < ysurf - yden:
                     # u = row[x]
                     # try:
 
-                    pxOut[X:X+xden, Y:Y+yden] = pxImage[x:x+xden, y:y+yden]
+                    pxOut[X:X + xden, Y:Y + yden] = pxImage[x:x + xden, y:y + yden]
                     # pxOut[X, Y] = pxImage[x, y]
                     # except:
                     #     print(y, x, xsize, ysize)
@@ -187,6 +189,13 @@ class Canvas:
         pxOut.close()
         pxImage.close()
         return out
+
+    def Text(self, text, pos, color=(255, 255, 255), font=None):
+        if not font:
+            font = self.default_font
+        t = font.render(text, False, color)
+        self.surface.blit(t, pos)
+        pass
 
 
 class Inputs:
