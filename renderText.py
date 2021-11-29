@@ -1,14 +1,15 @@
 # imported from old work at C:\Users\Okko Heiniö\Desktop\Python\Refraction\WaveCircuit\commandConsole.py
-class CommandConsole:
-    def __init__(self, commands=None):
-        self.text = ['']
+import math
+
+
+class TextEditor:
+    def __init__(self, text: 'list[str]|str' = ''):
+        if isinstance(text, str):
+            self.text = text.splitlines()
+        else:
+            self.text = text
         self.selectedLine = 0
         self.selectedIndex = 0
-        self.commandBuffer = []
-        if commands:
-            self.commands = commands
-        else:
-            self.commands = {}
 
     def InsertLine(self, index, element):
         self.text.insert(index, element)
@@ -17,12 +18,10 @@ class CommandConsole:
         self.text.pop(index)
 
     def InsertString(self, line, index, element):
-        self.text[line] = self.text[line][:index] + \
-            element + self.text[line][index:]
+        self.text[line] = self.text[line][:index] + element + self.text[line][index:]
 
     def PopString(self, line, indexFrom, indexTo):
-        self.text[line] = self.text[line][:indexFrom] + \
-            self.text[line][indexTo + 1:]
+        self.text[line] = self.text[line][:indexFrom] + self.text[line][indexTo + 1:]
 
     def TypeText(self, element):
         self.InsertString(self.selectedLine, self.selectedIndex, element)
@@ -100,6 +99,66 @@ class CommandConsole:
         elif self.selectedIndex < 0:
             self.selectedIndex = 0
 
+    def Lines(self, showSelector=False):
+        if showSelector:
+            return self.text[:self.selectedLine] + [self.GetLine(self.selectedLine)] + self.text[self.selectedLine + 1:]
+        return self.text
+
+
+def LineWrap(lines: 'list[str]', wrap: 'int'):
+    out = []
+    for line in lines:
+        for i in range(math.ceil(len(line) / wrap)):
+            out.append(line[i * wrap:(i + 1) * wrap])
+    return out
+
+
+import pygame
+pygame.font.init()
+
+
+class RenderText:
+    def __init__(self, height=50, color=(255, 255, 255)):
+        self.height = height
+        self.font = pygame.font.SysFont('consolas', self.height)
+        self.color = color
+
+    def RenderLines(self, lines: list):
+        # surface.fill((100, 0, 0))
+        height = 0
+        width = 0
+        out = []
+        for i in range(len(lines)):
+            s = self.font.render(lines[i], False, self.color)
+            out.append((s, (0, height)))
+            height += self.height
+            width = max(width, s.get_width())
+        surface = pygame.Surface(
+            (width, height), flags=pygame.SRCALPHA)
+        surface.blits(out)
+        return surface
+
+    # def BlitTo(self, destination):
+    #     self.surface.set_alpha(50 + 100 * self.opened)
+    #     destination.blit(self.surface, (0, 0))
+
+    def Render(self, text: str, wrap=0):
+        if wrap:
+            return self.RenderLines(LineWrap(text.splitlines(), wrap))
+        return self.RenderLines(text.splitlines())
+
+
+class CommandConsole(TextEditor):  # not implemented
+    def __init__(self, commands=None):
+        self.text = ['']
+        self.selectedLine = 0
+        self.selectedIndex = 0
+        self.commandBuffer = []
+        if commands:
+            self.commands = commands
+        else:
+            self.commands = {}
+
     def Parse(self, store=True):
         return self.ParseLine(self.selectedLine, store)
 
@@ -120,12 +179,10 @@ class CommandConsole:
         a = self.commandBuffer.copy()
         self.commandBuffer.clear()
         return a
+    pass
 
 
-import pygame
-
-
-class CommandConsoleVisual:
+class CommandConsoleVisual:  # not implemented
     def __init__(self):
         self.console = CommandConsole()
         self.height = 50
@@ -139,8 +196,7 @@ class CommandConsoleVisual:
         out = []
         color = (0, 0, 200)
         for i in range(len(self.console.text)):
-            out.append((self.font.render(self.console.GetLine(
-                i), False, color), (0, i * self.height)))
+            out.append((self.font.render(self.console.GetLine(i), False, color), (0, i * self.height)))
         self.surface.blits(out)
 
     def BlitTo(self, destination):
@@ -149,7 +205,7 @@ class CommandConsoleVisual:
 
     def KeydownEvent(self, event):
         key = event.__dict__['key']
-        if key == 303:  # pause
+        if key == pygame.K_PAUSE:  # pause
             if self.opened:
                 self.Close()
             else:
@@ -179,17 +235,17 @@ class CommandConsoleVisual:
         if key == pygame.K_ESCAPE:
             self.Close()
             return
-        if key == 8:
+        if key == pygame.K_BACKSPACE:
             self.console.Backspace()
             return
-        if key == 13:
-            if mod & 1:
+        if key == pygame.K_RETURN:
+            if mod & pygame.KMOD_SHIFT:
                 a = self.console.Parse(True)
             else:
                 self.console.Enter()
             return
-        a = {273: self.console.MoveUp, 275: self.console.MoveRight,
-             274: self.console.MoveDown, 276: self.console.MoveLeft}
+        a = {pygame.K_UP: self.console.MoveUp, pygame.K_RIGHT: self.console.MoveRight,
+             pygame.K_DOWN: self.console.MoveDown, pygame.K_LEFT: self.console.MoveLeft}
         if key in a:
             a[key]()
         if letter:
@@ -200,7 +256,7 @@ class CommandConsoleVisual:
         return self.console.TakeCommandBuffer()
 
 
-class CommandArgument:
+class CommandArgument:  # not implemented
     # INT,BOOL,STR,VEC,OPT=range(5)
     def __init__(self, argType, name):
         self.argType = argType
