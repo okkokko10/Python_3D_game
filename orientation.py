@@ -35,8 +35,8 @@ class Quaternion:  # (namedtuple('Quaternion', 'r i j k')):
             i = a.j * b.k - a.k * b.j + a.r * b.i + a.i * b.r
             j = a.k * b.i - a.i * b.k + a.r * b.j + a.j * b.r
             k = a.i * b.j - a.j * b.i + a.r * b.k + a.k * b.r
-            if isinstance(a, Vector) or isinstance(b, Vector):
-                return Vector.new(r, i, j, k)
+            if isinstance(a, Vector3) or isinstance(b, Vector3):
+                return Vector3.new(r, i, j, k)
             return Quaternion(r, i, j, k)
         return a.new(a.r * b, a.i * b, a.j * b, a.k * b)
 
@@ -64,20 +64,20 @@ class Quaternion:  # (namedtuple('Quaternion', 'r i j k')):
     def versor(self): return self / self.norm()
     def reciprocal(self) -> 'Quaternion': return self.conjugate() / self.normSq()
 
-    def GetVector(self): return Vector(self.i, self.j, self.k)
+    def GetVector(self): return Vector3(self.i, self.j, self.k)
 
-    def Rotate(self, vector: 'Vector') -> 'Vector':
+    def Rotate(self, vector: 'Vector3') -> 'Vector3':
         'rotates the given vector\n\n(p*q).Rotate(v) == p.Rotate(q.Rotate(v))\n\nalso called conjugation'
         return self * vector * self.reciprocal()
 
-    def RotateInverse(self, vector: 'Vector') -> 'Vector':
+    def RotateInverse(self, vector: 'Vector3') -> 'Vector3':
         'rotates the given vector in the opposite direction\n\np.RotateInverse(p.Rotate(v)) == v'
         return self.reciprocal() * vector * self
 
     def __str__(self): return '{}({} {} {} {})'.format(self.__class__.__name__, self.r, self.i, self.j, self.k)
 
 
-class Vector(Quaternion):
+class Vector3(Quaternion):
     # def __new__(cls,x, y, z): return Quaternion.__new__(cls,0, x, y, z)
 
     def __init__(self, i=0, j=0, k=0):
@@ -87,23 +87,23 @@ class Vector(Quaternion):
         # self.j = j
         # self.k = k
 
-    def RotationAround(self: 'Vector', angle):
+    def RotationAround(self: 'Vector3', angle):
         "rotation around the vector by the given angle"
         return self.RotationComplexHalf(math.cos(angle / 2), math.sin(angle / 2))
         # s = math.sin(angle/2)
         # return Quaternion(math.cos(angle/2), self.i*s, self.j*s, self.k*s)
 
-    def RotationComplexHalf(self: 'Vector', x, y):
+    def RotationComplexHalf(self: 'Vector3', x, y):
         "rotation around the vector by double the argument of complex(x,y)"
         return Quaternion(x, self.i * y, self.j * y, self.k * y)
 
-    def RotatedAroundAxis(self: 'Vector', axis: 'Vector', angle) -> 'Vector':
+    def RotatedAroundAxis(self: 'Vector3', axis: 'Vector3', angle) -> 'Vector3':
         rotator = axis.RotationAround(angle)
         return rotator.Rotate(self)
 
 
 class Transform:
-    def __init__(self, position: 'Vector', rotation: 'Quaternion'):
+    def __init__(self, position: 'Vector3', rotation: 'Quaternion'):
         self.position = position
         self.rotation = rotation
 
@@ -118,21 +118,21 @@ class Transform:
     def LocalizeRotation(self, other: 'Quaternion'):
         return self.rotation.reciprocal() * other
 
-    def LocalizeDirection(self, other: 'Vector'):
+    def LocalizeDirection(self, other: 'Vector3'):
         return self.rotation.RotateInverse(other)
 
-    def Globalize(self, other: 'Transform or Vector or Quaternion'):
+    def Globalize(self, other: 'Transform or Vector3 or Quaternion'):
         'if self is in w space and other is in self space, what is other in w space'
         return Transform(self.GlobalizePosition(other.position),
                          self.GlobalizeRotation(other.rotation))
 
-    def GlobalizePosition(self, other: 'Vector'):
+    def GlobalizePosition(self, other: 'Vector3'):
         return self.position + self.rotation.Rotate(other)
 
     def GlobalizeRotation(self, other: 'Quaternion'):
         return self.rotation * other
 
-    def GlobalizeDirection(self, other: 'Vector'):
+    def GlobalizeDirection(self, other: 'Vector3'):
         return self.rotation.Rotate(other)
 
 

@@ -8,14 +8,14 @@ import facecamera
 if __name__ == '__main__':
 
     C = Camera()
-    C.transform.position = Vector(0, 0, 0)
+    C.transform.position = Vector3(0, 0, 0)
 
     # den = 5
     # points = [Vector(i, j, k)/den for i in range(3*den) for j in range(3*den) for k in range(3*den)]
     # points += [Vector(i/den, 0, k/den) for i in range(-3*den, 6*den) for k in range(-3*den, 6*den)]
 
-    points = [Vector(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1 + 2) for _ in range(500)]
-    picturePoints = Vector(0, 0, 0), Vector(1, 0, 0), Vector(1, 1, 0), Vector(0, 1, 0)
+    points = [Vector3(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1 + 2) for _ in range(500)]
+    picturePoints = Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0)
 
     mx, my = 0, 0
 
@@ -32,10 +32,10 @@ if __name__ == '__main__':
         mx += mdx
         my += mdy
         # C.transform.rotation *= Vector(1,0,0).RotationAround(-mdy/400)*(Vector(0,1,0).RotationAround(-mdx/400))
-        rotationX = Vector(0, 1, 0).RotationAround(mx / 200)
-        rotationY = Vector(1, 0, 0).RotationAround(my / 200)
-        WASDvector = Vector(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
-                            inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
+        rotationX = Vector3(0, 1, 0).RotationAround(mx / 200)
+        rotationY = Vector3(1, 0, 0).RotationAround(my / 200)
+        WASDvector = Vector3(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
+                             inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
 
         C.transform.rotation = rotationX * rotationY
         C.transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)

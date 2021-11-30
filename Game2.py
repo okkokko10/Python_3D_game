@@ -12,13 +12,13 @@ import facecamera
 if __name__ == '__main__':
 
     C = Camera()
-    C.transform.position = Vector(0, 0, 0)
+    C.transform.position = Vector3(0, 0, 0)
 
-    points = [Vector(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1) for _ in range(500)]
-    picturePoints = Vector(0, 0, 0), Vector(1, 0, 0), Vector(1, 1, 0), Vector(0, 1, 0)
+    points = [Vector3(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1) for _ in range(500)]
+    picturePoints = Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0)
     points += picturePoints
 
-    ob1Transform = Transform(Vector(), Quaternion(1))
+    ob1Transform = Transform(Vector3(), Quaternion(1))
 
     mx, my = 0, 0
     ox, oy = 0, 0
@@ -29,8 +29,8 @@ if __name__ == '__main__':
         inputs = updater.get_inputs()
         events = updater.get_events()
         deltaTime = updater.get_deltaTime()
-        WASDvector = Vector(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
-                            inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
+        WASDvector = Vector3(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
+                             inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
         global mode
         if inputs.keyDown(pygame.K_g):
             mode = not mode
@@ -40,8 +40,8 @@ if __name__ == '__main__':
             global mx, my
             mx += mdx
             my += mdy
-            rotationX = Vector(0, 1, 0).RotationAround(mx / 200)
-            rotationY = Vector(1, 0, 0).RotationAround(my / 200)
+            rotationX = Vector3(0, 1, 0).RotationAround(mx / 200)
+            rotationY = Vector3(1, 0, 0).RotationAround(my / 200)
 
             C.transform.rotation = rotationX * rotationY
             C.transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)
@@ -49,8 +49,8 @@ if __name__ == '__main__':
             global ox, oy
             ox += mdx
             oy += mdy
-            rotationX = Vector(0, 1, 0).RotationAround(ox / 200)
-            rotationY = Vector(1, 0, 0).RotationAround(oy / 200)
+            rotationX = Vector3(0, 1, 0).RotationAround(ox / 200)
+            rotationY = Vector3(1, 0, 0).RotationAround(oy / 200)
 
             ob1Transform.rotation = rotationX * rotationY
             ob1Transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)

@@ -4,17 +4,17 @@ from screenIO import *
 
 class Camera:
     def __init__(self):
-        self.transform = Transform(Vector(0, 0, 0), Quaternion(1))
+        self.transform = Transform(Vector3(0, 0, 0), Quaternion(1))
         self.height = 1
         self.width = 1
 
-    def ProjectPosition(self, other: 'Vector', countOutside=False):
+    def ProjectPosition(self, other: 'Vector3', countOutside=False):
         p = self.transform.LocalizePosition(other)
         if p.k <= 0:
             return None
-        if not countOutside and (abs(p.i)*2 > self.width*p.k or abs(p.j)*2 > self.height*p.k):
+        if not countOutside and (abs(p.i) * 2 > self.width * p.k or abs(p.j) * 2 > self.height * p.k):
             return None
-        x, y = p.i/p.k, p.j/p.k
+        x, y = p.i / p.k, p.j / p.k
         return x, y
 
     def DrawLines(self, canvas: 'Canvas', vectors, width, color):

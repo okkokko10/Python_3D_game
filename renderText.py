@@ -11,29 +11,30 @@ class TextEditor:
         self.selectedLine = 0
         self.selectedIndex = 0
 
-    def InsertLine(self, index, element):
+    def _InsertLine(self, index, element):
         self.text.insert(index, element)
 
-    def PopLine(self, index):
+    def _PopLine(self, index):
         self.text.pop(index)
 
-    def InsertString(self, line, index, element):
+    def _InsertString(self, line, index, element):
         self.text[line] = self.text[line][:index] + element + self.text[line][index:]
 
-    def PopString(self, line, indexFrom, indexTo):
-        self.text[line] = self.text[line][:indexFrom] + self.text[line][indexTo + 1:]
+    def _PopString(self, line, indexFrom, indexTo):
+        'removes text from line between indexFrom inclusive and indexTo exclusive'
+        self.text[line] = self.text[line][:indexFrom] + self.text[line][indexTo:]
 
     def TypeText(self, element):
-        self.InsertString(self.selectedLine, self.selectedIndex, element)
-        self.MoveRight()
+        self._InsertString(self.selectedLine, self.selectedIndex, element)
+        self.MoveRight(len(element))
 
-    def RemoveLineBreak(self, line):
+    def _RemoveLineBreak(self, line: 'int'):
         if line > 0:
             self.text[line - 1] += self.text[line]
             self.text.pop(line)
 
-    def InsertLineBreak(self, line, index):
-        self.InsertLine(line + 1, self.text[line][index:])
+    def _InsertLineBreak(self, line, index):
+        self._InsertLine(line + 1, self.text[line][index:])
         self.text[line] = self.text[line][:index]
 
     def Backspace(self):
@@ -41,35 +42,33 @@ class TextEditor:
             if self.selectedLine == 0:
                 return
             self.MoveLeft()
-            self.RemoveLineBreak(self.selectedLine + 1)
+            self._RemoveLineBreak(self.selectedLine + 1)
             return
         self.MoveLeft()
-        self.PopString(self.selectedLine, self.selectedIndex, self.selectedIndex)
+        self._PopString(self.selectedLine, self.selectedIndex, self.selectedIndex + 1)
 
     def Enter(self):
-        self.InsertLineBreak(self.selectedLine, self.selectedIndex)
+        self._InsertLineBreak(self.selectedLine, self.selectedIndex)
         self.MoveRight()
 
     def MoveTo(self, line, index):
         self.selectedIndex = index
         self.selectedLine = line
-        self.WarpSelector()
+        self._ClampSelector()
 
-    def MoveUp(self):
-        self.selectedLine -= 1
-        self.ClampSelector()
+    def MoveUp(self, amount=1):
+        self.MoveDown(-amount)
 
-    def MoveDown(self):
-        self.selectedLine += 1
-        self.ClampSelector()
+    def MoveDown(self, amount=1):
+        self.selectedLine += amount
+        self._ClampSelector()
 
-    def MoveLeft(self):
-        self.selectedIndex -= 1
-        self.WarpSelector()
+    def MoveLeft(self, amount=1):
+        self.MoveRight(-amount)
 
-    def MoveRight(self):
-        self.selectedIndex += 1
-        self.WarpSelector()
+    def MoveRight(self, amount=1):
+        self.selectedIndex += amount
+        self._WrapAroundSelector()
 
     def GetLine(self, line):
         if self.selectedLine == line:
@@ -77,19 +76,17 @@ class TextEditor:
         else:
             return self.text[line]
 
-    def WarpSelector(self):
+    def _WrapAroundSelector(self):
         self.selectedLine %= len(self.text)
         if self.selectedIndex > len(self.text[self.selectedLine]):
+            self.selectedLine = (self.selectedLine + 1) % len(self.text)
             self.selectedIndex = 0
-            self.selectedLine += 1
-            self.selectedLine %= len(self.text)
         elif self.selectedIndex < 0:
-            self.selectedLine -= 1
-            self.selectedLine %= len(self.text)
+            self.selectedLine = (self.selectedLine - 1) % len(self.text)
             self.selectedIndex = len(self.text[self.selectedLine])
-        self.selectedLine %= len(self.text)
+        # self.selectedLine %= len(self.text)
 
-    def ClampSelector(self):
+    def _ClampSelector(self):
         if self.selectedLine >= len(self.text):
             self.selectedLine = len(self.text) - 1
         elif self.selectedLine <= 0:
