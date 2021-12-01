@@ -2,53 +2,106 @@
 import math
 
 
-class TextEditor:
-    def __init__(self, text: 'list[str]|str' = ''):
-        if isinstance(text, str):
-            self.text = text.splitlines()
+class Text(list[str]):
+    def __init__(self, *lines: 'str'):
+        if len(lines) == 1 and lines[0]:
+            if isinstance(lines[0], str):
+                lines = lines[0].splitlines()
+            else:
+                lines = lines[0]
+        self[:] = lines
+        pass
+
+    def InsertLine(self, row: 'int', string: 'str'):
+        self.insert(row, string)
+
+    def PopLine(self, index):
+        self.pop(index)
+
+    def InsertString(self, row: 'int', index: 'int', string: 'str'):
+        self[row] = self[row][:index] + string + self[row][index:]
+
+    def PopString(self, row: 'int', indexFrom: 'int', indexTo: 'int'):
+        'removes text from line between indexFrom inclusive and indexTo exclusive'
+        self[row] = self[row][:indexFrom] + self[row][indexTo:]
+
+    def RemoveLineBreak(self, row: 'int'):
+        if row > 0:
+            self[row - 1] += self[row]
+            self.pop(row)
+
+    def InsertLineBreak(self, row: 'int', index: 'int'):
+        self.InsertLine(row + 1, self[row][index:])
+        self[row] = self[row][:index]
+
+    def lineWrap(self, wrap: 'int'):
+        out = Text()
+        for line in self:
+            for i in range(math.ceil(len(line) / wrap)):
+                out.append(line[i * wrap:(i + 1) * wrap])
+        return out
+
+    def wrapAroundSelector(self, row: 'int', index: 'int'):
+        "returns row,index. don't give impossible row values"
+
+        if index > len(self[row]):
+            # r = (row + 1) % len(self)
+            if row == len(self) - 1:
+                return len(self) - 1, len(self[-1])
+            return row + 1, 0
+        elif index < 0:
+            # r = (row - 1) % len(self)
+            if row == 0:
+                return 0, 0
+            return row - 1, len(self[row - 1])  # +index+1
+        return row, index
+
+    def clampSelector(self, row: 'int', index: 'int'):
+        'returns row,index'
+        if row < 0:
+            return 0, 0
+        elif row > len(self) - 1:
+            return len(self) - 1, len(self[-1])
         else:
-            self.text = text
+            return row, min(max(index, 0), len(self[row]))
+        # if index < 0:
+        #     return row, 0
+        # elif index > len(self[row]):
+        #     return row, len(self[row])
+        # else:
+        #     return row, index
+        # # r = min(max(row, 0), len(self) - 1)
+        # # i = min(max(index,0),len(self[r]))
+        # return r, i
+
+    def as_string(self): return '\n'.join(self)
+
+
+class TextEditor:
+    def __init__(self, text: 'list[str]|str|Text' = ''):
+        if isinstance(text, str):
+            self.text = Text(text.splitlines())
+        else:
+            self.text = Text(text)
         self.selectedLine = 0
         self.selectedIndex = 0
 
-    def _InsertLine(self, index, element):
-        self.text.insert(index, element)
-
-    def _PopLine(self, index):
-        self.text.pop(index)
-
-    def _InsertString(self, line, index, element):
-        self.text[line] = self.text[line][:index] + element + self.text[line][index:]
-
-    def _PopString(self, line, indexFrom, indexTo):
-        'removes text from line between indexFrom inclusive and indexTo exclusive'
-        self.text[line] = self.text[line][:indexFrom] + self.text[line][indexTo:]
-
-    def TypeText(self, element):
-        self._InsertString(self.selectedLine, self.selectedIndex, element)
-        self.MoveRight(len(element))
-
-    def _RemoveLineBreak(self, line: 'int'):
-        if line > 0:
-            self.text[line - 1] += self.text[line]
-            self.text.pop(line)
-
-    def _InsertLineBreak(self, line, index):
-        self._InsertLine(line + 1, self.text[line][index:])
-        self.text[line] = self.text[line][:index]
+    def TypeText(self, string: 'str'):
+        self.text.InsertString(self.selectedLine, self.selectedIndex, string)
+        self.MoveRight(len(string))
 
     def Backspace(self):
         if self.selectedIndex == 0:
             if self.selectedLine == 0:
                 return
             self.MoveLeft()
-            self._RemoveLineBreak(self.selectedLine + 1)
+            self.text.RemoveLineBreak(self.selectedLine + 1)
             return
         self.MoveLeft()
-        self._PopString(self.selectedLine, self.selectedIndex, self.selectedIndex + 1)
+        self.text.PopString(self.selectedLine, self.selectedIndex, self.selectedIndex + 1)
 
     def Enter(self):
-        self._InsertLineBreak(self.selectedLine, self.selectedIndex)
+        self.text.InsertLineBreak(self.selectedLine, self.selectedIndex)
         self.MoveRight()
 
     def MoveTo(self, line, index):
@@ -77,37 +130,15 @@ class TextEditor:
             return self.text[line]
 
     def _WrapAroundSelector(self):
-        self.selectedLine %= len(self.text)
-        if self.selectedIndex > len(self.text[self.selectedLine]):
-            self.selectedLine = (self.selectedLine + 1) % len(self.text)
-            self.selectedIndex = 0
-        elif self.selectedIndex < 0:
-            self.selectedLine = (self.selectedLine - 1) % len(self.text)
-            self.selectedIndex = len(self.text[self.selectedLine])
-        # self.selectedLine %= len(self.text)
+        self.selectedLine, self.selectedIndex = self.text.wrapAroundSelector(self.selectedLine, self.selectedIndex)
 
     def _ClampSelector(self):
-        if self.selectedLine >= len(self.text):
-            self.selectedLine = len(self.text) - 1
-        elif self.selectedLine <= 0:
-            self.selectedLine = 0
-        if self.selectedIndex > len(self.text[self.selectedLine]):
-            self.selectedIndex = len(self.text[self.selectedLine])
-        elif self.selectedIndex < 0:
-            self.selectedIndex = 0
+        self.selectedLine, self.selectedIndex = self.text.clampSelector(self.selectedLine, self.selectedIndex)
 
     def Lines(self, showSelector=False):
         if showSelector:
             return self.text[:self.selectedLine] + [self.GetLine(self.selectedLine)] + self.text[self.selectedLine + 1:]
         return self.text
-
-
-def LineWrap(lines: 'list[str]', wrap: 'int'):
-    out = []
-    for line in lines:
-        for i in range(math.ceil(len(line) / wrap)):
-            out.append(line[i * wrap:(i + 1) * wrap])
-    return out
 
 
 import pygame
@@ -120,13 +151,13 @@ class RenderText:
         self.font = pygame.font.SysFont('consolas', self.height)
         self.color = color
 
-    def RenderLines(self, lines: list):
+    def RenderLines(self, text: Text):
         # surface.fill((100, 0, 0))
         height = 0
         width = 0
         out = []
-        for i in range(len(lines)):
-            s = self.font.render(lines[i], False, self.color)
+        for i in range(len(text)):
+            s = self.font.render(text[i], False, self.color)
             out.append((s, (0, height)))
             height += self.height
             width = max(width, s.get_width())
@@ -139,10 +170,17 @@ class RenderText:
     #     self.surface.set_alpha(50 + 100 * self.opened)
     #     destination.blit(self.surface, (0, 0))
 
-    def Render(self, text: str, wrap=0):
+    def Render(self, text: 'str|Text', wrap=0):
         if wrap:
-            return self.RenderLines(LineWrap(text.splitlines(), wrap))
-        return self.RenderLines(text.splitlines())
+            return self.RenderLines(Text(text).lineWrap(wrap))
+        return self.RenderLines(Text(text))
+
+
+class Chat:
+    def __init__(self):
+        self.text = Text()
+        pass
+    pass
 
 
 class CommandConsole(TextEditor):  # not implemented
