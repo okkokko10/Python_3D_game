@@ -52,7 +52,7 @@ if __name__ == '__main__':
         canvas.UnlockSurface()
         return
 
-    Upd = Updater().Setup(func=update, framerate=30, canvas=Canvas(pygame.display.set_mode()))
+    Upd = Updater(func=update, framerate=30, canvas=Canvas(pygame.display.set_mode()))
 
     Upd.get_inputs().LockMouse()
     C.width = Upd.canvas.ratio

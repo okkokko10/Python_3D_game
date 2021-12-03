@@ -1,6 +1,15 @@
+from typing import Callable
 import pygame
 import pygame.gfxdraw
+import numpy as np
 pygame.init()
+
+
+DEFAULT_FRAMERATE = 40
+
+
+def vec(*args: 'float'):
+    return np.array(args)
 
 
 class ObjectStorage:
@@ -9,31 +18,35 @@ class ObjectStorage:
 
 
 class Updater:
-    "use Updater().Setup() to quickly initialize an updater, and updater.Play() to start"
+    "Updater.Play() to start"
+    # "use Updater().Setup() to quickly initialize an updater, and updater.Play() to start"
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
-    func = None
-    framerate = None
+    func: 'Callable[[Updater],None]|None' = None
+    framerate = DEFAULT_FRAMERATE
     objects: 'ObjectStorage' = None
 
     _clock: 'pygame.time.Clock' = None
     _running: 'bool' = None
     deltaTime: 'int' = None
 
-    def Setup(self, func=None, canvas=None, inputs=None, framerate=None, objectStorage=None):
-        "func is a function that takes the updater as argument and is called every frame after updater.Play() is called"
-        if canvas or not self.canvas:
-            self.InitDisplayCanvas(canvas)
-        if inputs or not self.inputs:
-            self.InitInputs(inputs)
+    def __init__(self, func: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
+        """setting canvas and inputs to True uses the default, and False disables them.\n
+        func is a function that takes the updater as argument and is called every frame after updater.Play() is called\n
+        func can be left as None. This can be useful if you want to just display a single image"""
+        if canvas:
+            self.InitDisplayCanvas(None if canvas == True else canvas)
+        if inputs:
+            self.InitInputs(None if inputs == True else inputs)
         if func:
             self.SetFunc(func)
-        if framerate or not self.framerate:
-            DEFAULT_FRAMERATE = 40
-            self.SetFramerate(framerate or DEFAULT_FRAMERATE)
-        if objectStorage or not self.objects:
-            self.InitObjectStorage(objectStorage)
-        return self
+        # if framerate:
+        self.SetFramerate(framerate or DEFAULT_FRAMERATE)
+        # if objectStorage:
+        self.InitObjectStorage(objectStorage)
+
+    # def Setup(self, func=None, canvas=None, inputs=None, framerate=None, objectStorage=None):
+    #     return Updater(func, canvas, inputs, framerate, objectStorage)
 
     def Play(self):
         'func(self)'
@@ -44,8 +57,10 @@ class Updater:
             if pygame.event.get(pygame.QUIT):
                 self.Stop()
             self.events = pygame.event.get()
-            self._Update_inputs()
-            self.func(self)
+            if self.inputs:
+                self._Update_inputs()
+            if self.func:
+                self.func(self)
 
             pygame.display.update()
         return self
@@ -197,6 +212,20 @@ class Canvas:
         self.surface.blit(t, pos)
         pass
 
+    def Blit(self, source: 'pygame.Surface', dest: 'tuple[int,int]' = (0, 0)):
+        self.surface.blit(source, dest)
+
+    def BlitCanvas(self, source: 'Canvas', dest: 'tuple[int,int]' = (0, 0)):
+        self.surface.blit(source.surface, dest)
+
+    def BlitCanvases(self, sources: 'list[tuple[tuple[int,int],Canvas]]'):
+        self.surface.blits([(c.surface, p) for p, c in sources])
+
+
+class CanvasNoZoom(Canvas):
+    def convert(self, pos):
+        return pos
+
 
 class Inputs:
     def __init__(self):
@@ -255,3 +284,4 @@ class Inputs:
         return pygame.display.get_surface()
 
     def get_mouse_movement(self): return self.mouse_movement
+    def get_mouse_position(self): return self.mouse_position
