@@ -7,6 +7,8 @@ pygame.init()
 
 DEFAULT_FRAMERATE = 40
 
+Vector = np.ndarray
+
 
 def vec(*args: 'float'):
     return np.array(args)
@@ -115,7 +117,7 @@ class Canvas:
         self.width = surface.get_width()
         self.zoom = self.height
         self.ratio = self.width / self.height
-        self.default_font = pygame.font.Font(None, 20)
+        # self.default_font = pygame.font.Font(None, 20)
 
     def Line(self, pos1, pos2, width, color):
         pygame.draw.line(self.surface, color, self.convert(
@@ -205,12 +207,12 @@ class Canvas:
         pxImage.close()
         return out
 
-    def Text(self, text, pos, color=(255, 255, 255), font=None):
-        if not font:
-            font = self.default_font
-        t = font.render(text, False, color)
-        self.surface.blit(t, pos)
-        pass
+    # def Text(self, text, pos, color=(255, 255, 255), font=None):
+    #     if not font:
+    #         font = self.default_font
+    #     t = font.render(text, False, color)
+    #     self.surface.blit(t, pos)
+    #     pass
 
     def Blit(self, source: 'pygame.Surface', dest: 'tuple[int,int]' = (0, 0)):
         self.surface.blit(source, dest)
@@ -218,13 +220,16 @@ class Canvas:
     def BlitCanvas(self, source: 'Canvas', dest: 'tuple[int,int]' = (0, 0)):
         self.surface.blit(source.surface, dest)
 
-    def BlitCanvases(self, sources: 'list[tuple[tuple[int,int],Canvas]]'):
-        self.surface.blits([(c.surface, p) for p, c in sources])
+    def Blits(self, sources: 'list[tuple[pygame.Surface,Vector]]'):
+        self.surface.blits(sources)  # [(s, p) for p, s in sources])
 
 
 class CanvasNoZoom(Canvas):
     def convert(self, pos):
         return pos
+
+    def convertList(self, poslist):
+        return poslist
 
 
 class Inputs:
@@ -232,8 +237,8 @@ class Inputs:
         self.ups = set()
         self.downs = set()
         self.pressed = {}
-        self.mouse_movement = [0, 0]
-        self.mouse_position = 0, 0
+        self.mouse_movement = vec(0, 0)
+        self.mouse_position = vec(0, 0)
         pass
 
     def _set_keyDown(self, key):
@@ -252,16 +257,15 @@ class Inputs:
             self.pressed[k] += deltaTime
         self.ups.clear()
         self.downs.clear()
-        self.mouse_movement = [0, 0]
+        self.mouse_movement = vec(0, 0)
         for e in events:
             if e.type == pygame.KEYDOWN:
                 self._set_keyDown(e.key)
             elif e.type == pygame.KEYUP:
                 self._set_keyUp(e.key)
             elif e.type == pygame.MOUSEMOTION:
-                self.mouse_position = e.pos
-                self.mouse_movement[0] += e.rel[0]
-                self.mouse_movement[1] += e.rel[1]
+                self.mouse_position = vec(*e.pos)
+                self.mouse_movement += e.rel
 
     def keyPressed(self, key):
         return key in self.pressed
