@@ -111,10 +111,13 @@ class Updater:
 
 
 class Canvas:
-    def __init__(self, surface: pygame.surface.Surface):
-        self.surface = surface
-        self.height = surface.get_height()
-        self.width = surface.get_width()
+    def __init__(self, surface: pygame.surface.Surface | Vector):
+        if isinstance(surface, pygame.surface.Surface):
+            self.surface = surface
+        else:
+            self.surface = pygame.surface.Surface(surface)
+        self.height = self.surface.get_height()
+        self.width = self.surface.get_width()
         self.zoom = self.height
         self.ratio = self.width / self.height
         # self.default_font = pygame.font.Font(None, 20)
