@@ -43,14 +43,14 @@ class Updater:
             self.canvas = Canvas(pygame.display.set_mode((800, 800))) if canvas == True else canvas
         if inputs:
             self.inputs = Inputs() if inputs == True else inputs
-        if init:
-            self.initFunction = init
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
         self.objects = objectStorage or ObjectStorage()
+        if init:
+            self.initFunction = init
+        self._init()
 
     def Play(self):
         'func(self)'
-        self._init()
         self._clock = pygame.time.Clock()
         self._running = True
         while self._running:
@@ -115,16 +115,18 @@ class Updater:
 
 class SubUpdater(Updater):
 
-    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, objectStorage=None):
+    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = False, inputs: 'Inputs|bool' = False, objectStorage=None):
         'not ready yet'
         if canvas:
             self.canvas = Canvas(vec(800, 800)) if canvas == True else canvas
         self.objects = objectStorage or ObjectStorage()
         self.initFunction = init
-
-    def Init(self, master):
-        self.inputs = master.inputs
+        if inputs:
+            self.inputs = Inputs() if inputs == True else inputs
         self._init()
+
+    # def Init(self, master):
+    #     self.inputs = master.inputs
 
     def PlayOnce(self, master: 'Updater'):
         'func(self)'
@@ -316,3 +318,21 @@ class Inputs:
 
     def get_mouse_movement(self): return self.mouse_movement
     def get_mouse_position(self): return self.mouse_position
+
+
+class Scene:
+    def __call__(self, updater: 'Updater'):
+        'leave as is'
+        self.o_Init(updater)
+        return self.o_Update
+
+    def __init__(self, *args, **kvargs):
+        pass
+
+    def o_Init(self, updater: 'Updater'):
+        'runs when updater starts playing'
+        pass
+
+    def o_Update(self, updater: 'Updater'):
+        'runs every frame'
+        pass
