@@ -134,15 +134,3 @@ class Transform:
 
     def GlobalizeDirection(self, other: 'Vector3'):
         return self.rotation.Rotate(other)
-
-
-if __name__ == '__main__':
-    A = Quaternion(1, 2, 3, 4)
-    print(A)
-    B = Quaternion(1, 2, 3, 4)
-    print('B', B)
-
-    C = A * B
-    print(C)
-    D = A.reciprocal() * C
-    print(D)

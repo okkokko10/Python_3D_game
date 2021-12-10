@@ -25,6 +25,7 @@ class Updater:
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
     func: 'Callable[[Updater],None]|None' = None
+    init: 'Callable[[Updater],None]|None' = None
     framerate = DEFAULT_FRAMERATE
     objects: 'ObjectStorage' = None
 
@@ -32,28 +33,27 @@ class Updater:
     _running: 'bool' = None
     deltaTime: 'int' = None
 
-    def __init__(self, func: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
+    def __init__(self, func: 'Callable[[Updater],None]|None' = None, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
         """setting canvas and inputs to True uses the default, and False disables them.\n
         func is a function that takes the updater as argument and is called every frame after updater.Play() is called\n
         func can be left as None. This can be useful if you want to just display a single image"""
         if canvas:
-            self.InitDisplayCanvas(None if canvas == True else canvas)
+            self.canvas = Canvas(pygame.display.set_mode((800, 800))) if canvas == True else canvas
         if inputs:
-            self.InitInputs(None if inputs == True else inputs)
+            self.inputs = Inputs() if inputs == True else inputs
         if func:
             self.SetFunc(func)
-        # if framerate:
+        if init:
+            self.init = init
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
-        # if objectStorage:
-        self.InitObjectStorage(objectStorage)
-
-    # def Setup(self, func=None, canvas=None, inputs=None, framerate=None, objectStorage=None):
-    #     return Updater(func, canvas, inputs, framerate, objectStorage)
+        self.objects = objectStorage or ObjectStorage()
 
     def Play(self):
         'func(self)'
         self._clock = pygame.time.Clock()
         self._running = True
+        if self.init:
+            self.init(self)
         while self._running:
             self.deltaTime = self._clock.tick(self.framerate)
             if pygame.event.get(pygame.QUIT):
@@ -70,13 +70,13 @@ class Updater:
     def _Update_inputs(self):
         self.inputs.UpdateInputs(self.events, self.deltaTime)
 
-    def InitDisplayCanvas(self, canvas: 'Canvas' = None):
-        self.canvas = canvas or Canvas(pygame.display.set_mode((800, 800)))
-        return self.canvas
+    # def InitDisplayCanvas(self, canvas: 'Canvas' = None):
+    #     self.canvas = canvas or Canvas(pygame.display.set_mode((800, 800)))
+    #     return self.canvas
 
-    def InitInputs(self, inputs: 'Inputs' = None):
-        self.inputs = inputs or Inputs()
-        return self.inputs
+    # def InitInputs(self, inputs: 'Inputs' = None):
+    #     self.inputs = inputs or Inputs()
+    #     return self.inputs
 
     def SetFunc(self, func):
         self.func = func
@@ -84,8 +84,8 @@ class Updater:
     def SetFramerate(self, framerate):
         self.framerate = framerate
 
-    def InitObjectStorage(self, objectStorage: 'ObjectStorage' = None):
-        self.objects = objectStorage or ObjectStorage()
+    # def InitObjectStorage(self, objectStorage: 'ObjectStorage' = None):
+    #     self.objects = objectStorage or ObjectStorage()
 
     def get_canvas(self):
         return self.canvas
@@ -110,12 +110,36 @@ class Updater:
         return
 
 
+class SubUpdater(Updater):
+
+    def __init__(self, func: 'Callable[[Updater],None]|None' = None, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, objectStorage=None):
+        'not ready yet'
+        if canvas:
+            self.canvas = Canvas(vec(800, 800)) if canvas == True else canvas
+        if func:
+            self.SetFunc(func)
+        self.objects = objectStorage or ObjectStorage()
+        self.init = init
+
+    def Init(self, master):
+        self.inputs = master.inputs
+        if self.init:
+            self.init(self)
+
+    def PlayOnce(self, master: 'Updater'):
+        'func(self)'
+        self.deltaTime = master.deltaTime
+        self.events = master.events
+        self.inputs = master.inputs
+        if self.func:
+            self.func(self)
+    pass
+
+
 class Canvas:
-    def __init__(self, surface: pygame.surface.Surface | Vector):
-        if isinstance(surface, pygame.surface.Surface):
-            self.surface = surface
-        else:
-            self.surface = pygame.surface.Surface(surface)
+    def __init__(self, surface: pygame.Surface | Vector):
+
+        self.surface = surface if isinstance(surface, pygame.Surface) else pygame.Surface(surface)
         self.height = self.surface.get_height()
         self.width = self.surface.get_width()
         self.zoom = self.height

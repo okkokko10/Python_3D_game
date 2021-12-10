@@ -40,7 +40,7 @@ class Container:
     parent: 'Container|None' = None
     # func_OnClick: Callable[[Updater], None] = None
 
-    def __init__(self, shape: 'ContainerShape', children: 'list[Container]' = None):
+    def __init__(self, shape: 'ContainerShape', children: 'list[Container]' = None, listening=False):
         self.shape = shape
         self.shape.container = self
         self.children = children or []
@@ -48,6 +48,7 @@ class Container:
             child.parent = self
             child.shape.parent = self.shape
         self.canvas = CanvasNoZoom(self.shape.size)
+        self.listening = listening  # whether the container should listen to inputs
 
     def _render(self) -> list[tuple[pygame.Surface, Vector]]:
         blit_sequence = (self.o_Render(), self.get_true_pos())  # , None, pygame.BLEND_RGB_SUB)
@@ -107,19 +108,36 @@ class Container:
         else:
             return a, 0
 
+    def Top_Render_surface(self):
+        "NYI: renders self and all children into a surface so they don't have to be rendered individually every time"
+        raise NotImplementedError()
+
 
 if __name__ == '__main__':
     import renderText
-    w1 = Container(ContainerShape(vec(50, 50), vec(700, 700)))
-    w1.canvas.Fill((0, 100, 100))
-    w1.canvas.Line(vec(0, 0), vec(50, 25), 5, (100, 0, 0))
+    import Game1
 
-    w2 = Container(ContainerShape(vec(50, 50), vec(140, 140)))
-    w2.canvas.Fill((0, 0, 100))
-    w2.canvas.Line(vec(0, 0), vec(50, 25), 5, (100, 0, 0))
-    w1.Add_container(w2)
+    def init(updater: 'Updater'):
+        w1 = Container(ContainerShape(vec(50, 50), vec(700, 700)))
+        w1.canvas.Fill((0, 100, 100))
+        w1.canvas.Line(vec(0, 0), vec(50, 25), 5, (100, 0, 0))
+
+        w2 = Container(ContainerShape(vec(50, 50), vec(140, 140)))
+        w2.canvas.Fill((0, 0, 100))
+        w2.canvas.Line(vec(0, 0), vec(50, 25), 5, (100, 0, 0))
+        w1.Add_container(w2)
+        su = SubUpdater(Game1.update, Game1.init, w1.canvas)
+        su.Init(updater)
+        o = updater.get_objects()
+        o.w1 = w1
+        o.w2 = w2
+        o.su = su
 
     def update(updater: 'Updater'):
+        o = updater.get_objects()
+        w1 = o.w1
+        w2 = o.w2
+        o.su.PlayOnce(updater)
         updater.get_canvas().Fill((200, 200, 200))
         w1.Update_position()
         a, b = w1.posInsideOnly(updater.get_inputs().get_mouse_position())
@@ -131,4 +149,6 @@ if __name__ == '__main__':
             w1.canvas.Circle(a, 5, (200, 200, 0))
         w1.Top_Render(updater.get_canvas())
 
-    Updater(update).Play()
+    upd = Updater(update, init)
+
+    upd.Play()
