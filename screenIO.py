@@ -24,8 +24,8 @@ class Updater:
     # "use Updater().Setup() to quickly initialize an updater, and updater.Play() to start"
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
-    func: 'Callable[[Updater],None]|None' = None
-    init: 'Callable[[Updater],None]|None' = None
+    updateFunction: 'Callable[[Updater],None]|None' = None
+    initFunction: 'Callable[[Updater],None]|None' = None
     framerate = DEFAULT_FRAMERATE
     objects: 'ObjectStorage' = None
 
@@ -33,27 +33,26 @@ class Updater:
     _running: 'bool' = None
     deltaTime: 'int' = None
 
-    def __init__(self, func: 'Callable[[Updater],None]|None' = None, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
+    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
         """setting canvas and inputs to True uses the default, and False disables them.\n
+        init is a function that takes the updater as argument and is called once when updater.Play() is called\n
+        init should return a function func\n
         func is a function that takes the updater as argument and is called every frame after updater.Play() is called\n
         func can be left as None. This can be useful if you want to just display a single image"""
         if canvas:
             self.canvas = Canvas(pygame.display.set_mode((800, 800))) if canvas == True else canvas
         if inputs:
             self.inputs = Inputs() if inputs == True else inputs
-        if func:
-            self.SetFunc(func)
         if init:
-            self.init = init
+            self.initFunction = init
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
         self.objects = objectStorage or ObjectStorage()
 
     def Play(self):
         'func(self)'
+        self._init()
         self._clock = pygame.time.Clock()
         self._running = True
-        if self.init:
-            self.init(self)
         while self._running:
             self.deltaTime = self._clock.tick(self.framerate)
             if pygame.event.get(pygame.QUIT):
@@ -61,8 +60,8 @@ class Updater:
             self.events = pygame.event.get()
             if self.inputs:
                 self._Update_inputs()
-            if self.func:
-                self.func(self)
+            if self.updateFunction:
+                self.updateFunction(self)
 
             pygame.display.update()
         return self
@@ -79,7 +78,7 @@ class Updater:
     #     return self.inputs
 
     def SetFunc(self, func):
-        self.func = func
+        self.updateFunction = func
 
     def SetFramerate(self, framerate):
         self.framerate = framerate
@@ -109,30 +108,31 @@ class Updater:
         self._running = False
         return
 
+    def _init(self):
+        if self.initFunction:
+            self.updateFunction = self.initFunction(self)
+
 
 class SubUpdater(Updater):
 
-    def __init__(self, func: 'Callable[[Updater],None]|None' = None, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, objectStorage=None):
+    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, objectStorage=None):
         'not ready yet'
         if canvas:
             self.canvas = Canvas(vec(800, 800)) if canvas == True else canvas
-        if func:
-            self.SetFunc(func)
         self.objects = objectStorage or ObjectStorage()
-        self.init = init
+        self.initFunction = init
 
     def Init(self, master):
         self.inputs = master.inputs
-        if self.init:
-            self.init(self)
+        self._init()
 
     def PlayOnce(self, master: 'Updater'):
         'func(self)'
         self.deltaTime = master.deltaTime
         self.events = master.events
         self.inputs = master.inputs
-        if self.func:
-            self.func(self)
+        if self.updateFunction:
+            self.updateFunction(self)
     pass
 
 

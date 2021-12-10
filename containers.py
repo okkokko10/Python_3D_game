@@ -126,29 +126,23 @@ if __name__ == '__main__':
         w2.canvas.Fill((0, 0, 100))
         w2.canvas.Line(vec(0, 0), vec(50, 25), 5, (100, 0, 0))
         w1.Add_container(w2)
-        su = SubUpdater(Game1.update, Game1.init, w1.canvas)
+        su = SubUpdater(Game1.init, w1.canvas)
         su.Init(updater)
-        o = updater.get_objects()
-        o.w1 = w1
-        o.w2 = w2
-        o.su = su
 
-    def update(updater: 'Updater'):
-        o = updater.get_objects()
-        w1 = o.w1
-        w2 = o.w2
-        o.su.PlayOnce(updater)
-        updater.get_canvas().Fill((200, 200, 200))
-        w1.Update_position()
-        a, b = w1.posInsideOnly(updater.get_inputs().get_mouse_position())
-        if b == 2:
-            if updater.get_inputs().keyPressed(pygame.K_s):
-                w1.canvas.Circle(a, 50, (0, 100, 200))
-            if updater.get_inputs().keyPressed(pygame.K_d):
-                w1.canvas.Circle(a, 25, (0, 0, 200))
-            w1.canvas.Circle(a, 5, (200, 200, 0))
-        w1.Top_Render(updater.get_canvas())
+        def update(updater: 'Updater'):
+            su.PlayOnce(updater)
+            updater.get_canvas().Fill((200, 200, 200))
+            w1.Update_position()
+            a, b = w1.posInsideOnly(updater.get_inputs().get_mouse_position())
+            if b == 2:
+                if updater.get_inputs().keyPressed(pygame.K_s):
+                    w1.canvas.Circle(a, 50, (0, 100, 200))
+                if updater.get_inputs().keyPressed(pygame.K_d):
+                    w1.canvas.Circle(a, 25, (0, 0, 200))
+                w1.canvas.Circle(a, 5, (200, 200, 0))
+            w1.Top_Render(updater.get_canvas())
+        return update
 
-    upd = Updater(update, init)
+    upd = Updater(init)
 
     upd.Play()
