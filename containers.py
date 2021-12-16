@@ -9,11 +9,17 @@ from screenIO import *
 
 
 class ContainerShape:
-    def __init__(self, pos: 'Vector', size: 'Vector'):
+    def __init__(self, *args):
+        "pos: 'Vector', size: 'Vector'"
+        if len(args) == 1:
+            pass
+        if len(args) == 2:
+            self.pos, self.size = args
+        elif len(args) == 4:
+            self.pos = vec(*args[0:2])
+            self.size = vec(*args[2:4])
         self.container: 'Container' = None
         self.parent: 'ContainerShape' = None
-        self.pos = pos
-        self.size = size
         self.true_pos = vec(0, 0)
         pass
 
@@ -33,27 +39,33 @@ class ContainerShape:
             return a, True
         else:
             return a, False
-    pass
+
+    def __iter__(self):
+        return (x for x in (self.pos, self.size))
+
+    def update(self, pos, size):
+        self.pos = vec(*pos)
+        self.size = vec(*size)
 
 
 class Container:
     parent: 'Container|None' = None
     # func_OnClick: Callable[[Updater], None] = None
 
-    def __init__(self, shape: 'ContainerShape', children: 'list[Container]' = None, listening=False):
-        self.shape = shape
+    def __init__(self, shape: "ContainerShape|tuple[Vector,Vector]|tuple[float,float,float,float]", children: 'list[Container]' = None):
+        self.shape = ContainerShape(*shape)
         self.shape.container = self
-        self.children = children or []
+        self.children = list(children or [])
         for child in self.children:
             child.parent = self
             child.shape.parent = self.shape
         self.canvas = CanvasNoZoom(self.shape.size)
-        self.listening = listening  # whether the container should listen to inputs
+        # self.listening = listening  # whether the container should listen to inputs
 
     def _render(self) -> list[tuple[pygame.Surface, Vector]]:
         blit_sequence = (self.o_Render(), self.get_true_pos())  # , None, pygame.BLEND_RGB_SUB)
         a = [blit_sequence] if blit_sequence[0] else []
-        for s in self.children:
+        for s in self.get_children():
             a += s._render()
         # [s._render() for s in self.children]
         return a
@@ -72,7 +84,8 @@ class Container:
         pass
 
     def Top_Render(self, canvas: 'Canvas'):
-        'Renders the container and all children. Additionally has the same effect as Container.Update_position().'
+        '''Renders the container and all children. Additionally has the same effect as Container.Update_position().\n
+        All methods that operate on all children go through the list of children in order (except child_at_position, which does so in reverse)'''
         canvas.Blits(self._render())
         pass
 
@@ -99,7 +112,7 @@ class Container:
         'same as posInside, but returns 2 if the position is also not inside any child containers'
         a, b = self.posInside(pos)
         if b:
-            for s in self.children:
+            for s in self.get_children():
                 if s.posInside(pos)[1]:
                     break
             else:
@@ -111,6 +124,24 @@ class Container:
     def Top_Render_surface(self):
         "NYI: renders self and all children into a surface so they don't have to be rendered individually every time"
         raise NotImplementedError()
+
+    def child_at_position(self, pos: Vector) -> "tuple[Vector,Container]":
+        """returns the child the position is inside of, and the position relative to the child\n
+        returns None and the position relative to self if the position is outside self\n
+        (first position, then the container)"""
+        a, b = self.posInside(pos)
+        for s in reversed(self.get_children()):
+            c = s.child_at_position(pos)
+            if c[1]:
+                return c
+        if b:
+            return a, self
+        return a, None
+
+    def __getitem__(self, key):
+        return self.children[key]
+
+    def get_children(self): return self.children
 
 
 if __name__ == '__main__':
@@ -144,4 +175,64 @@ if __name__ == '__main__':
                 self.w1.canvas.Circle(a, 5, (200, 200, 0))
             self.w1.Top_Render(updater.get_canvas())
 
-    Updater(A()).Play()
+    # Updater(A()).Play()
+    class Dropdown(Container):
+        is_open = True
+
+        def __init__(self, shape: "ContainerShape|tuple[Vector,Vector]|tuple[float,float,float,float]", closeShape: "ContainerShape|tuple[Vector,Vector]|tuple[float,float,float,float]" = None, children: 'list[Container]' = None):
+            super().__init__(shape, children=children)
+            self.closeShape = ContainerShape(*(closeShape or self.shape))
+            self.openShape = ContainerShape(*self.shape)
+            self._canvases = [CanvasNoZoom(self.closeShape.size), CanvasNoZoom(self.openShape.size)]
+
+        @property
+        def canvas(self):
+            return self._canvases[self.is_open]
+
+        @canvas.setter
+        def canvas(self, value):
+            pass
+
+        def get_children(self):
+            if self.is_open:
+                return super().get_children()
+            else:
+                return []
+
+        def close(self):
+            self.is_open = False
+            self.shape.update(*self.closeShape)
+
+        def open(self):
+            self.is_open = True
+            self.shape.update(*self.openShape)
+
+    class B(Scene):
+        def o_Init(self, updater: 'Updater'):
+            self.w1 = Container((200, 100, 1200, 800), [
+                Container((50, 50, 100, 100)),
+                Dropdown((100, 100, 300, 500), (100, 100, 300, 100), [
+                    Container((50, 50, 100, 100))
+                ])
+            ])
+            self.w1.canvas.Fill((200, 200, 200))
+            self.w1[1][0].canvas.Fill((200, 0, 200))
+
+        def o_Update(self, updater: 'Updater'):
+            mouse = updater.get_inputs().get_mouse_position()
+            a, b = self.w1.child_at_position(mouse)
+            if b:
+                if updater.get_inputs().keyPressed(pygame.K_e):
+                    b.canvas.Circle(a, 40, (100, 100, 100))
+                if updater.get_inputs().keyPressed(pygame.K_q):
+                    b.canvas.Circle(a, 40, (100, 00, 100))
+                b.shape.pos += updater.get_inputs().WASD() * (1, -1)
+                if isinstance(b, Dropdown):
+                    if updater.get_inputs().keyDown(pygame.K_r):
+                        b.close()
+                    if updater.get_inputs().keyDown(pygame.K_f):
+                        b.open()
+
+            updater.get_canvas().Fill((100, 0, 100))
+            self.w1.Top_Render(updater.get_canvas())
+    Updater(B()).Play()

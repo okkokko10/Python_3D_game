@@ -2,16 +2,19 @@ from typing import Callable
 import pygame
 import pygame.gfxdraw
 import numpy as np
+from vector import *
+
 pygame.init()
 
 
 DEFAULT_FRAMERATE = 40
 
-Vector = np.ndarray
+# Vector = np.ndarray
 
 
 def vec(*args: 'float'):
-    return np.array(args)
+    # return np.array(args)
+    return Vector(*args)
 
 
 class ObjectStorage:
@@ -25,7 +28,7 @@ class Updater:
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
     updateFunction: 'Callable[[Updater],None]|None' = None
-    initFunction: 'Callable[[Updater],None]|None' = None
+    scene: 'Scene|None' = None
     framerate = DEFAULT_FRAMERATE
     objects: 'ObjectStorage' = None
 
@@ -33,20 +36,20 @@ class Updater:
     _running: 'bool' = None
     deltaTime: 'int' = None
 
-    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
+    def __init__(self, scene: 'Scene|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
         """setting canvas and inputs to True uses the default, and False disables them.\n
         init is a function that takes the updater as argument and is called once when updater.Play() is called\n
         init should return a function func\n
         func is a function that takes the updater as argument and is called every frame after updater.Play() is called\n
         func can be left as None. This can be useful if you want to just display a single image"""
         if canvas:
-            self.canvas = Canvas(pygame.display.set_mode((800, 800))) if canvas == True else canvas
+            self.canvas = Canvas(pygame.display.set_mode()) if canvas == True else canvas
         if inputs:
             self.inputs = Inputs() if inputs == True else inputs
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
         self.objects = objectStorage or ObjectStorage()
-        if init:
-            self.initFunction = init
+        if scene:
+            self.scene = scene
         self._init()
 
     def Play(self):
@@ -60,8 +63,8 @@ class Updater:
             self.events = pygame.event.get()
             if self.inputs:
                 self._Update_inputs()
-            if self.updateFunction:
-                self.updateFunction(self)
+            if self.scene:
+                self.scene.o_Update(self)
 
             pygame.display.update()
         return self
@@ -77,8 +80,8 @@ class Updater:
     #     self.inputs = inputs or Inputs()
     #     return self.inputs
 
-    def SetFunc(self, func):
-        self.updateFunction = func
+    # def SetFunc(self, func):
+    #     self.updateFunction = func
 
     def SetFramerate(self, framerate):
         self.framerate = framerate
@@ -109,18 +112,18 @@ class Updater:
         return
 
     def _init(self):
-        if self.initFunction:
-            self.updateFunction = self.initFunction(self)
+        if self.scene:
+            self.scene.o_Init(self)
 
 
 class SubUpdater(Updater):
 
-    def __init__(self, init: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = False, inputs: 'Inputs|bool' = False, objectStorage=None):
+    def __init__(self, scene: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = False, inputs: 'Inputs|bool' = False, objectStorage=None):
         'not ready yet'
         if canvas:
             self.canvas = Canvas(vec(800, 800)) if canvas == True else canvas
         self.objects = objectStorage or ObjectStorage()
-        self.initFunction = init
+        self.scene = scene
         if inputs:
             self.inputs = Inputs() if inputs == True else inputs
         self._init()
@@ -133,8 +136,8 @@ class SubUpdater(Updater):
         self.deltaTime = master.deltaTime
         self.events = master.events
         self.inputs = master.inputs
-        if self.updateFunction:
-            self.updateFunction(self)
+        if self.scene:
+            self.scene.o_Update(self)
     pass
 
 
@@ -255,10 +258,10 @@ class Canvas:
 
 class CanvasNoZoom(Canvas):
     def convert(self, pos):
-        return pos
+        return int(pos[0]), int(pos[1])
 
-    def convertList(self, poslist):
-        return poslist
+    # def convertList(self, poslist):
+    #     return [pos.f for pos in poslist]
 
 
 class Inputs:
@@ -318,6 +321,10 @@ class Inputs:
 
     def get_mouse_movement(self): return self.mouse_movement
     def get_mouse_position(self): return self.mouse_position
+
+    def WASD(self):
+        return vec(self.keyPressed(pygame.K_d) - self.keyPressed(pygame.K_a),
+                   self.keyPressed(pygame.K_w) - self.keyPressed(pygame.K_s))
 
 
 class Scene:

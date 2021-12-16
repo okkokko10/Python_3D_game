@@ -58,6 +58,6 @@ def init(updater: 'Updater'):
 
 if __name__ == '__main__':
 
-    Upd = Updater(init=init, framerate=30, canvas=Canvas(pygame.display.set_mode()))
+    Upd = Updater(scene=init, framerate=30, canvas=Canvas(pygame.display.set_mode()))
 
     Upd.Play()
