@@ -27,7 +27,7 @@ class Updater:
     # "use Updater().Setup() to quickly initialize an updater, and updater.Play() to start"
     canvas: 'Canvas' = None
     inputs: 'Inputs' = None
-    updateFunction: 'Callable[[Updater],None]|None' = None
+    # updateFunction: 'Callable[[Updater],None]|None' = None
     scene: 'Scene|None' = None
     framerate = DEFAULT_FRAMERATE
     objects: 'ObjectStorage' = None
@@ -266,29 +266,47 @@ class CanvasNoZoom(Canvas):
 
 class Inputs:
     def __init__(self):
-        self.ups = set()
-        self.downs = set()
-        self.pressed = {}
+        self._ups = set()
+        self._downs = set()
+        self._pressed = {}
         self.mouse_movement = vec(0, 0)
         self.mouse_position = vec(0, 0)
+        self._mouse_ups = set()
+        self._mouse_downs = set()
+        self._mouse_pressed = {}
         pass
 
     def _set_keyDown(self, key):
-        self.downs.add(key)
-        self.pressed[key] = 0
+        self._downs.add(key)
+        self._pressed[key] = 0
         return
 
     def _set_keyUp(self, key):
-        self.ups.add(key)
+        self._ups.add(key)
+        return
+
+    def _set_mouseDown(self, button):
+        self._mouse_downs.add(button)
+        self._mouse_pressed[button] = 0
+        return
+
+    def _set_mouseUp(self, button):
+        self._mouse_ups.add(button)
         return
 
     def UpdateInputs(self, events, deltaTime):
-        for k in self.ups:
-            del self.pressed[k]
-        for k in self.pressed:
-            self.pressed[k] += deltaTime
-        self.ups.clear()
-        self.downs.clear()
+        for k in self._ups:
+            del self._pressed[k]
+        for k in self._pressed:
+            self._pressed[k] += deltaTime
+        for k in self._mouse_ups:
+            del self._mouse_pressed[k]
+        for k in self._mouse_pressed:
+            self._mouse_pressed[k] += deltaTime
+        self._ups.clear()
+        self._downs.clear()
+        self._mouse_ups.clear()
+        self._mouse_downs.clear()
         self.mouse_movement = vec(0, 0)
         for e in events:
             if e.type == pygame.KEYDOWN:
@@ -298,15 +316,28 @@ class Inputs:
             elif e.type == pygame.MOUSEMOTION:
                 self.mouse_position = vec(*e.pos)
                 self.mouse_movement += e.rel
+            elif e.type == pygame.MOUSEBUTTONDOWN:
+                self._set_mouseDown(e.button)
+            elif e.type == pygame.MOUSEBUTTONUP:
+                self._set_mouseUp(e.button)
 
     def keyPressed(self, key):
-        return key in self.pressed
+        return key in self._pressed
 
     def keyUp(self, key):
-        return key in self.ups
+        return key in self._ups
 
     def keyDown(self, key):
-        return key in self.downs
+        return key in self._downs
+
+    def mousePressed(self, button):
+        return button in self._mouse_pressed
+
+    def mouseUp(self, button):
+        return button in self._mouse_ups
+
+    def mouseDown(self, button):
+        return button in self._mouse_downs
 
     def LockMouse(self):
         pygame.mouse.set_visible(False)

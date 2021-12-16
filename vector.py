@@ -83,13 +83,13 @@ class Vector:
         return Vector(*(self[k].__int__() for k in self.keys()))
 
     def __str__(self):
-        return ' '.join(self[k].__str__() for k in self.keys())
+        return 'V({})'.format(' '.join(self[k].__str__() for k in self.keys()))
 
     def lengthSq(self):
         return sum(self[k]**2 for k in self.keys())
 
     def length(self): return math.sqrt(self.lengthSq())
-    def dotProduct(self, other: 'Vector'): return sum(self * other)
+    def dotProduct(self, other: 'Vector') -> float: return sum(self * other)
 
     def project(self, other: 'Vector'):
         return self.dotProduct(other) / self.lengthSq() * self
@@ -109,3 +109,10 @@ class Vector:
 
     @property
     def f(self): return int(self.x), int(self.y)
+
+    def normalized(self):
+        return self / (self.length() or 1)
+
+    def round(self, size: 'Vector') -> 'Vector':
+
+        return Vector(*((self[k] // size[k] * size[k]) for k in self.keys()))
