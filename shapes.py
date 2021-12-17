@@ -11,18 +11,17 @@ class Shape:
 class Reflectable:
     def Hit(self, laser: 'Laser') -> 'list[Vector]':
         "does the laser hit, and where"
-        return
 
     def Reflect(self, origin: 'Vector', direction: 'Vector') -> 'Vector':
         "which direction is a laser facing towards direction reflected towards when hitting the reflectable at position origin"
-        return
-    pass
 
 
 class Line(Shape, Reflectable):
-    def __init__(self, start: Vector, end: Vector):
+    def __init__(self, start: Vector, end: Vector, cap_a=True, cap_b=False):
         self.a = start
         self.b = end
+        self.cap_a = cap_a
+        self.cap_b = cap_b
 
     @staticmethod
     def fromVector(origin: Vector, direction: Vector):
@@ -48,10 +47,13 @@ class Line(Shape, Reflectable):
         return self.a + s * (self.vector)
 
     def isInside(self, point: Vector):
-        "it doesn't count if the point is at the end position"
+        "it doesn't count if the point is at the end position -- when cap_a and cap_b are default"
         in1 = (point - self.a).dotProduct(self.vector)
-        in2 = -(point - self.b).dotProduct(self.vector)
-        return (in1 >= 0) and (in2 > 0)
+        if ((in1 >= 0) if self.cap_a else (in1 > 0)):
+            in2 = -(point - self.b).dotProduct(self.vector)
+            return (in2 >= 0) if self.cap_b else (in2 > 0)
+        else:
+            return False
 
     def dotProduct(self, point: Vector):
         "the larger the value, the farther the point is in the line's direction. negative values mean the point is behind"
@@ -85,14 +87,18 @@ class Laser:
         # idea: partition areas
         hits, point = self.ClosestHit(reflectors)
         if point:
-            v = self.line.vector
             # w = v
             # for h in hits:
             #     w = w + h.Reflect(point, v) - v  # TODO: hitting a corner doesn't work like this
-            s = sum((h.vector.normalized() for h in hits), start=Vector())
-            w = s.reflect(v)
-            if w.dotProduct(v) > 0:
-                w *= -1
+            # s = sum((h.vector.normalized() for h in hits), start=Vector())
+            # w = s.reflect(v)
+            # if w.dotProduct(v) > 0:
+            #     w *= -1
+            if len(hits) == 1:
+                v = self.line.vector
+                w = hits[0].Reflect(point, v)
+            else:
+                w = -self.line.vector
             a = Laser(point, w, hits)
             return a, (point - self.line.a).length()
         else:
