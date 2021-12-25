@@ -159,8 +159,8 @@ class Canvas:
         closed = False
         pygame.draw.lines(self.surface, color, closed, self.convertList(poslist), width)
 
-    def Circle(self, pos, radius, color):
-        pygame.draw.circle(self.surface, color, self.convert(pos), radius)
+    def Circle(self, pos, radius, color, width=0):
+        pygame.draw.circle(self.surface, color, self.convert(pos), radius, width)
 
     def convert(self, pos):
         return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)

@@ -110,7 +110,7 @@ class Vector:
     @property
     def f(self): return int(self.x), int(self.y)
 
-    def normalized(self):
+    def unit(self):
         return self / (self.length() or 1)
 
     def round(self, size: 'Vector') -> 'Vector':
