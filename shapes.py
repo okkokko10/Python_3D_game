@@ -83,14 +83,35 @@ class Line(Shape, Reflectable):
 
     def distance(self, point: Vector):
         "distance to the line. use Line.distanceSegment for the line segment's distance"
-        return abs(self.vector.complexMul(Vector(0, 1)).projectScalar(point - self.a))
-        pass
+        return abs(self.vector.normal().projectScalar(point - self.a))
+
+    def distanceSq(self, point: Vector):
+        "square distance to the line. use Line.distanceSegmentSq for the line segment's distance"
+        return self.vector.normal().projectScalarSq(point - self.a)
 
     def distanceSegment(self, point: Vector) -> float:
-        if self.isInside(point):
-            return self.distance(point)
+
+        # if self.isInside(point):
+        #     return self.distance(point)
+        # else:
+        #     return math.sqrt(min((self.a - point).lengthSq(), (self.b - point).lengthSq()))
+
+        if (point - self.a).dotProduct(self.vector) > 0:
+            if -(point - self.b).dotProduct(self.vector) > 0:
+                return self.distance(point)
+            else:
+                return (self.b - point).length()
         else:
-            return math.sqrt(min((self.a - point).lengthSq(), (self.b - point).lengthSq()))
+            return (self.a - point).length()
+
+    def distanceSegmentSq(self, point: Vector) -> float:
+        if (point - self.a).dotProduct(self.vector) > 0:
+            if -(point - self.b).dotProduct(self.vector) > 0:
+                return self.distanceSq(point)
+            else:
+                return (self.b - point).lengthSq()
+        else:
+            return (self.a - point).lengthSq()
 
 
 class Sphere(Shape, Reflectable):
@@ -127,19 +148,19 @@ class Sphere(Shape, Reflectable):
 
 
 class Movable:
-    def attributes(self) -> tuple[str]:
+    def movable_attributes(self) -> tuple[str]:
         "Override this. Empty string is a keyword for whole"
         return ()
 
-    def closest(self, position: Vector) -> tuple[str, float]:
+    def movable_closest(self, position: Vector) -> tuple[str, float]:
         "Maybe override this. Returns closest attribute, and the squared distance to the attribute"
         def key(k):
             return (self.get(k) - position).lengthSq()
-        a = min(self.attributes(), key=key)
+        a = min(self.movable_attributes(), key=key)
         return a, key(a)
 
-    def distance(self, position: Vector) -> float:
-        "Override this. Return the square distance, to "
+    def movable_distanceSq(self, position: Vector) -> float:
+        "Override this. Return the square distance to the position, for finding the closest movable"
         pass
 
     def onPick(self, mover: 'Mover', attr: 'str'):
@@ -162,7 +183,7 @@ class Movable:
             self.MoveWhole(movement)
 
     def MoveWhole(self, movement: 'Vector'):
-        for k in self.attributes():
+        for k in self.movable_attributes():
             self.set(k, self.get(k) + movement)
 
     def MoveWholeTo(self, attr: str, position: 'Vector'):
@@ -170,15 +191,18 @@ class Movable:
 
     def Rotozoom(self, center: Vector, zoom: Vector):
         # might be lossy
-        for k in self.attributes():
+        for k in self.movable_attributes():
             g = self.get(k)
             self.set(k, (g - center).complexMul(zoom) + center)
         pass
 
 
 class MovableLine(Line, Movable):
-    def attributes(self):
+    def movable_attributes(self):
         return 'a', 'b'
+
+    def movable_distanceSq(self, position: Vector) -> float:
+        return self.distanceSegmentSq()
 
 # TODO: rotation, highlighting an object
 
@@ -221,7 +245,7 @@ class Mover:
         closestAttr = None
         distanceSq = maxDistanceSq
         for p in pickable:
-            attr, dsq = p.closest(position)
+            attr, dsq = p.movable_closest(position)
             if distanceSq > dsq or distanceSq == -1:
                 closestP = p
                 closestAttr = attr
@@ -334,7 +358,7 @@ def main():
             #     if a:
             #         b = self.lines[i].isInside(a)
             #         canvas.Circle(a, 4 + 8 * b, (100 + 50 * b, 100 - 100 * b, 50))
-            if len(self.shapes) > 1:
+            if len(self.shapes) >= 1:
                 l = Laser(self.shapes[0].a, self.shapes[0].vector)
                 p, e, *_ = l.ReflectMultiple(self.shapes[1:], -1, self.shapes[0].vector.length() * 4)
                 canvas.Lines([a.line.a for a, b in p] + [e.line.a], 5, (200, 100, 100))
