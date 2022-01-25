@@ -335,9 +335,10 @@ def main():
             self.mover = Mover()
 
         def o_Update(self, updater: 'Updater'):
+            GRID = Vector(10, 10)
             inputs = updater.get_inputs()
             canvas = updater.get_canvas()
-            mpos = Vector(*inputs.get_mouse_position()).round(Vector(64, 64)) + Vector(32, 32)
+            mpos = Vector(*inputs.get_mouse_position()).round(GRID) + GRID / 2
             if inputs.keyDown(pygame.K_UP) or inputs.mouseDown(1):
                 if self.one:
                     self.shapes.append(MovableLine(self.one, mpos))
@@ -366,9 +367,9 @@ def main():
                     canvas.Circle(a.line.a, 1 + min(b, 100) // 10, (0, 0, min(b, 100)))
             for line in self.shapes:
                 line.Draw(canvas)
-            s = pygame.Surface((64, 64))
+            s = pygame.Surface((GRID.x, GRID.y,))
             s.fill((50, 0, 50))
-            canvas.surface.blit(s, canvas.convert(mpos - Vector(32, 32)), special_flags=pygame.BLEND_ADD)
+            canvas.surface.blit(s, canvas.convert(mpos - GRID / 2), special_flags=pygame.BLEND_ADD)
             canvas.Circle(mpos, 10, (100, 200, 100))
             if self.one:
                 canvas.Circle(self.one, 10, (250, 0, 100))
