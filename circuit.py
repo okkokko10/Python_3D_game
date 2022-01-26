@@ -12,20 +12,21 @@ class Board:
         self.outputs = []
         self.to_update = set()
         self.to_trash = set()
+        self.changes = Counter()
 
     def update(self):
-        changes = Counter()
+        for i, v in self.changes.items():
+            if v:
+                self.modify_pin(i).updateIn(v)
+        self.changes.clear()
         for pos in self.to_update:
             pin = self.get_pin(pos)
             ac, de = pin.updateOut()
-            changes.update(ac)
-            changes.subtract(de)
+            self.changes.update(ac)
+            self.changes.subtract(de)
             if not pin.notEmpty():
                 del self.pins[pos]
         self.to_update.clear()
-        for i, v in changes.items():
-            if v:
-                self.modify_pin(i).updateIn(v)
 
     def get_pin(self, pos):
         pos = IntVec(pos)
@@ -122,6 +123,10 @@ class Pin:
     @property
     def power(self):
         return self._power
+
+    @property
+    def new_power(self):
+        return self._new_power + self._new_default - self._default
 
     def notEmpty(self):
         return bool(self._directions.notEmpty() or self._new_directions.notEmpty() or self._default or self._new_default or self._power or self._new_power)
@@ -252,7 +257,7 @@ class View:
             self.canvas = screenIO.CanvasNoZoom(self.area * self.zoom)
         else:
             self.canvas = canvas
-        self.textRender = renderText.RenderText(color=(200, 200, 200, 200))
+        self.textRender = renderText.RenderText(height=self.zoom // 3, color=(200, 200, 200, 200))
 
     def get_pos(self):
         return self.boards[-1][1]
@@ -301,7 +306,7 @@ class View:
     def Draw(self):
         board, topPos = self.boards[-1]
         to_draw = self.to_draw(board, topPos)
-        self.canvas.Fill((60, 50, 50))
+        self.canvas.Fill((0, 0, 0))
         for pin, pos in zip(to_draw, self.GridPoints()):
             if pin is not None:
                 self.DrawPin(pin, pos)
@@ -312,17 +317,33 @@ class View:
         color1 = 90, 50, 50
         color2 = 100, 100, 150
         color3 = 50, 80, 120
-        size = 1 / 5
-        for v in pin.directions.iterate(self.zoom / 2):
-            self.canvas.Line(center, center + v, self.zoom / 5, color2)
-        self.canvas.Circle(center, self.zoom * size, color2)
+        color4 = 100, 100, 200
+
+        def squiggle(center, v, color):
+            screenIO.pygame.gfxdraw.bezier(self.canvas.surface, [center, center + v.complexMul(Vector(0.5, 0.5)),
+                                           center + v.complexMul(Vector(0.5, -0.5)), center + v], 20, color)
+
+        for v in pin.directions.iterate(self.zoom):
+            self.canvas.Line(center, center + v / 2, self.zoom / 4, color2)
+            squiggle(center, v * pin.power, color2)
+            squiggle(center, v * pin.new_power, color3)
+        if pin.directions.notEmpty():
+            self.canvas.Circle(center, self.zoom / 6, color2)
         # self.canvas.Blit(self.textRender.Render(str(pin.power), color=color3), pos)
-        r = Vector(0, 1) * self.zoom * (1 / 5)
-        rotator = Vector.Rotation(1 / max(8, pin.power))
-        for i in range(pin.power):
+        r = Vector(0, 1) * self.zoom * (1 / 8)
+        rotator = Vector.Rotation(1 / max(8, pin.new_power))
+        for i in range(pin.new_power):
             color = color1 if i < pin.default else color3
-            self.canvas.Circle(center + r, self.zoom / 10, color)
+            self.canvas.Circle(center + r, self.zoom / 16, color)
             r = rotator.complexMul(r)
+        if pin.new_power:
+            self.canvas.Circle(center, self.zoom / 7, color4)
+
+
+def rectVect(center, v):
+    re = screenIO.pygame.Rect(
+        *center, 0, 0).union(*(center + v), 0, 0)
+    return re
 
 
 class MultiString:
@@ -360,23 +381,25 @@ class sceneA(screenIO.Scene):
     def o_Init(self, updater: 'screenIO.Updater'):
         self.board = Board()
         self.view = View(self.board)
-        # self.board.modify_pin(IntVec(1, 1)).directions.set(Directions(Directions.RIGHT))
-        # self.board.modify_pin(IntVec(1, 1)).default = 1
-        # self.board.update()
-        # self.view.text(self.board, IntVec(0, 0))
+        self.pause = False
 
     def o_Update(self, updater: 'screenIO.Updater'):
-        self.board.update()
         pos = updater.inputs.get_mouse_position()
         l, d = self.view.locate(pos)
-        pin = self.view.get_board().modify_pin(l)
         if updater.inputs.mouseDown(1):
+            pin = self.view.get_board().modify_pin(l)
             pin.directions.flip(d)
         if updater.inputs.mouseDown(4):
+            pin = self.view.get_board().modify_pin(l)
             pin.default += 1
         if updater.inputs.mouseDown(5):
+            pin = self.view.get_board().modify_pin(l)
             if pin.default > 0:
                 pin.default -= 1
+        if not self.pause or updater.inputs.keyDown(screenIO.pygame.K_e):
+            self.board.update()
+        if updater.inputs.keyDown(screenIO.pygame.K_w):
+            self.pause = not self.pause
         updater.canvas.BlitCanvas(self.view.Draw())
 
 
