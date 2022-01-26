@@ -151,29 +151,34 @@ class RenderText:
         self.font = pygame.font.SysFont('consolas', self.height)
         self.color = color
 
-    def RenderLines(self, text: Text):
+    def RenderLines(self, text: Text, color=None):
+        if color is None:
+            color = self.color
         # surface.fill((100, 0, 0))
         height = 0
         width = 0
         out = []
         for i in range(len(text)):
-            s = self.font.render(text[i], False, self.color)
+            s = self.font.render(text[i], False, color)
             out.append((s, (0, height)))
             height += self.height
             width = max(width, s.get_width())
         surface = pygame.Surface(
             (width, height), flags=pygame.SRCALPHA)
         surface.blits(out)
+        if len(color) == 4:
+            # surface.fill((255, 255, 255, color[3]), special_flags=pygame.BLEND_MULT)
+            surface.set_alpha(color[3])
         return surface
 
     # def BlitTo(self, destination):
     #     self.surface.set_alpha(50 + 100 * self.opened)
     #     destination.blit(self.surface, (0, 0))
 
-    def Render(self, text: 'str|Text', wrap=0):
+    def Render(self, text: 'str|Text', wrap=0, color=None):
         if wrap:
-            return self.RenderLines(Text(text).lineWrap(wrap))
-        return self.RenderLines(Text(text))
+            return self.RenderLines(Text(text).lineWrap(wrap), color=color)
+        return self.RenderLines(Text(text), color=color)
 
 
 class Chat:

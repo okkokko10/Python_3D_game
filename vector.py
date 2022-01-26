@@ -1,11 +1,13 @@
 import math
 from typing import Iterable
 
+# TODO: Merge IntVec and Vector, stop the automatic float() and int() there
+
 
 class Vector:
     def __init__(self, x: float = 0, y: float = 0):
-        self._x = float(x)
-        self._y = float(y)
+        self._x = (x)
+        self._y = (y)
 
     @property
     def x(self): return self._x
@@ -33,7 +35,7 @@ class Vector:
         return (0, 1)
 
     def __add__(self, other):
-        return self.__class__(*(a.__add__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a + (b) for a, b in zip(self, other)))
 
     # def __sub__(self, other):
     #     return Vector(
@@ -42,13 +44,13 @@ class Vector:
     #     )
 
     def __sub__(self, other):
-        return self.__class__(*(a.__sub__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a - (b) for a, b in zip(self, other)))
 
     def __mul__(self, other):
         if isinstance(other, Vector):
-            return self.__class__(*(a.__mul__(b) for a, b in zip(self, other)))
+            return self.__class__(*(a * (b) for a, b in zip(self, other)))
         else:
-            return self.__class__(*(a.__mul__(other) for a in self))
+            return self.__class__(*(a * (other) for a in self))
 
     def __rmul__(self, other):
         if isinstance(other, Vector):
@@ -57,7 +59,7 @@ class Vector:
             return self.__class__(*(a.__rmul__(other) for a in self))
 
     def __truediv__(self, other):
-        return self.__class__(*(a.__truediv__(other) for a in self))
+        return self.__class__(*(a / (other) for a in self))
 
     def __le__(self, other):
         return self.__class__(*(a.__le__(b) for a, b in zip(self, other)))
@@ -81,8 +83,8 @@ class Vector:
         return self.__class__(*(a.__floor__() for a in self))
 
     def __int__(self):
-        # return self.__class__(*(a.__int__() for a in self))
-        return IntVec(*self)
+        return self.__class__(*(a.__int__() for a in self))
+        # return IntVec(*self)
 
     def __str__(self):
         return 'V({})'.format(' '.join(a.__str__() for a in self))
@@ -118,9 +120,9 @@ class Vector:
     def unit(self):
         return self / (self.length() or 1)
 
-    def round(self, size: 'Vector') -> 'Vector':
-
-        return self.__class__(*((self[k] // size[k] * size[k]) for k in self.keys()))
+    def round(self, size: 'Vector', offset=(0, 0)) -> 'Vector':
+        "always rounds down"
+        return self.__class__(*(((k - o) // s * s + o) for k, s, o in zip(self, size, offset)))
 
     def normal(self):
         "a vector perpendicular to this one"
@@ -129,17 +131,35 @@ class Vector:
     def __eq__(self, other) -> bool:
         return all(a == b for a, b in zip(self, other))
 
+    def __floordiv__(self, other):
+        return self.__class__(*(a // (other) for a in self))
+
+    def roundClosest(self, size: 'Vector') -> 'Vector':
+        "alligns to the grid's center"
+        return (self + size / 2).round(size)
+
+    def __hash__(self):
+        return tuple(self).__hash__()
+
+    @classmethod
+    @property
+    def ONE(cls):
+        return cls(1, 1)
+
+    @classmethod
+    def Rotation(cls, circuits):
+        "in whole turns"
+        r = circuits * math.pi * 2
+        return cls(math.cos(r), math.sin(r))
+
 
 class IntVec(Vector):
     def __init__(self, x=0, y=0):
         "initialization also accepts Vectors"
         if isinstance(x, Iterable):
             x, y = x
-        self._x = int(x)
-        self._y = int(y)
-
-    def __hash__(self):
-        return tuple(self).__hash__()
+        self._x = (x)
+        self._y = (y)
 
     def __str__(self):
         return 'iV({})'.format(' '.join(a.__str__() for a in self))

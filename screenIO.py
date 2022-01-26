@@ -331,12 +331,15 @@ class Inputs:
         return key in self._downs
 
     def mousePressed(self, button):
+        "1 left 2 middle 3 right 4 up 5 down 6 side lower 7 side upper"
         return button in self._mouse_pressed
 
     def mouseUp(self, button):
+        "1 left 2 middle 3 right 4 up 5 down 6 side lower 7 side upper"
         return button in self._mouse_ups
 
     def mouseDown(self, button):
+        "1 left 2 middle 3 right 4 up 5 down 6 side lower 7 side upper"
         return button in self._mouse_downs
 
     def LockMouse(self):
