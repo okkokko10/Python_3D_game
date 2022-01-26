@@ -1,4 +1,5 @@
 import math
+from typing import Iterable
 
 
 class Vector:
@@ -7,15 +8,15 @@ class Vector:
         self._y = float(y)
 
     @property
-    def x(self) -> float: return self._x
+    def x(self): return self._x
     @x.setter
     def x(self, value: float): self._x = value
     @property
-    def y(self) -> float: return self._y
+    def y(self): return self._y
     @y.setter
     def y(self, value: float): self._y = value
 
-    def __getitem__(self, i) -> float:
+    def __getitem__(self, i):
         return self.y if i else self.x
 
     def __setitem__(self, i, value: float):
@@ -32,7 +33,7 @@ class Vector:
         return (0, 1)
 
     def __add__(self, other):
-        return Vector(*(a.__add__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__add__(b) for a, b in zip(self, other)))
 
     # def __sub__(self, other):
     #     return Vector(
@@ -41,46 +42,47 @@ class Vector:
     #     )
 
     def __sub__(self, other):
-        return Vector(*(a.__sub__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__sub__(b) for a, b in zip(self, other)))
 
     def __mul__(self, other):
         if isinstance(other, Vector):
-            return Vector(*(a.__mul__(b) for a, b in zip(self, other)))
+            return self.__class__(*(a.__mul__(b) for a, b in zip(self, other)))
         else:
-            return Vector(*(a.__mul__(other) for a in self))
+            return self.__class__(*(a.__mul__(other) for a in self))
 
     def __rmul__(self, other):
         if isinstance(other, Vector):
-            return Vector(*(a.__rmul__(b) for a, b in zip(self, other)))
+            return self.__class__(*(a.__rmul__(b) for a, b in zip(self, other)))
         else:
-            return Vector(*(a.__rmul__(other) for a in self))
+            return self.__class__(*(a.__rmul__(other) for a in self))
 
     def __truediv__(self, other):
-        return Vector(*(a.__truediv__(other) for a in self))
+        return self.__class__(*(a.__truediv__(other) for a in self))
 
     def __le__(self, other):
-        return Vector(*(a.__le__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__le__(b) for a, b in zip(self, other)))
 
     def __lt__(self, other):
-        return Vector(*(a.__lt__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__lt__(b) for a, b in zip(self, other)))
 
     def __ge__(self, other):
-        return Vector(*(a.__ge__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__ge__(b) for a, b in zip(self, other)))
 
     def __gt__(self, other):
-        return Vector(*(a.__gt__(b) for a, b in zip(self, other)))
+        return self.__class__(*(a.__gt__(b) for a, b in zip(self, other)))
 
     def __neg__(self):
-        return Vector(*(a.__neg__() for a in self))
+        return self.__class__(*(a.__neg__() for a in self))
 
     def __pos__(self):
-        return Vector(*(a.__pos__() for a in self))
+        return self.__class__(*(a.__pos__() for a in self))
 
     def __floor__(self):
-        return Vector(*(a.__floor__() for a in self))
+        return self.__class__(*(a.__floor__() for a in self))
 
     def __int__(self):
-        return Vector(*(a.__int__() for a in self))
+        # return self.__class__(*(a.__int__() for a in self))
+        return IntVec(*self)
 
     def __str__(self):
         return 'V({})'.format(' '.join(a.__str__() for a in self))
@@ -101,10 +103,10 @@ class Vector:
         return self.dotProduct(other)**2 / self.lengthSq()
 
     def complexMul(self, other: 'Vector'):
-        return Vector(self.x * other.x - self.y * other.y, self.x * other.y + self.y * other.x)
+        return self.__class__(self.x * other.x - self.y * other.y, self.x * other.y + self.y * other.x)
 
     def complexConjugate(self):
-        return Vector(self.x, -self.y)
+        return self.__class__(self.x, -self.y)
 
     def reflect(self, other: 'Vector'):
         "other reflected by self"
@@ -118,8 +120,26 @@ class Vector:
 
     def round(self, size: 'Vector') -> 'Vector':
 
-        return Vector(*((self[k] // size[k] * size[k]) for k in self.keys()))
+        return self.__class__(*((self[k] // size[k] * size[k]) for k in self.keys()))
 
     def normal(self):
         "a vector perpendicular to this one"
-        return Vector(-self.y, self.x)
+        return self.__class__(-self.y, self.x)
+
+    def __eq__(self, other) -> bool:
+        return all(a == b for a, b in zip(self, other))
+
+
+class IntVec(Vector):
+    def __init__(self, x=0, y=0):
+        "initialization also accepts Vectors"
+        if isinstance(x, Iterable):
+            x, y = x
+        self._x = int(x)
+        self._y = int(y)
+
+    def __hash__(self):
+        return tuple(self).__hash__()
+
+    def __str__(self):
+        return 'iV({})'.format(' '.join(a.__str__() for a in self))

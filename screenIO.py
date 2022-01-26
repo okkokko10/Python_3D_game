@@ -43,9 +43,9 @@ class Updater:
         func is a function that takes the updater as argument and is called every frame after updater.Play() is called\n
         func can be left as None. This can be useful if you want to just display a single image"""
         if canvas:
-            self.canvas = Canvas(pygame.display.set_mode()) if canvas == True else canvas
+            self.canvas = Canvas(pygame.display.set_mode()) if canvas is True else canvas
         if inputs:
-            self.inputs = Inputs() if inputs == True else inputs
+            self.inputs = Inputs() if inputs is True else inputs
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
         self.objects = objectStorage or ObjectStorage()
         if scene:
@@ -144,7 +144,7 @@ class SubUpdater(Updater):
 class Canvas:
     def __init__(self, surface: pygame.Surface | Vector):
 
-        self.surface = surface if isinstance(surface, pygame.Surface) else pygame.Surface(surface)
+        self.surface = surface if isinstance(surface, pygame.Surface) else pygame.Surface(tuple(surface))
         self.height = self.surface.get_height()
         self.width = self.surface.get_width()
         self.zoom = self.height
@@ -153,14 +153,14 @@ class Canvas:
 
     def Line(self, pos1, pos2, width, color):
         pygame.draw.line(self.surface, color, self.convert(
-            pos1), self.convert(pos2), width)
+            pos1), self.convert(pos2), int(width))
 
     def Lines(self, poslist, width, color):
         closed = False
-        pygame.draw.lines(self.surface, color, closed, self.convertList(poslist), width)
+        pygame.draw.lines(self.surface, color, closed, self.convertList(poslist), int(width))
 
     def Circle(self, pos, radius, color, width=0):
-        pygame.draw.circle(self.surface, color, self.convert(pos), radius, width)
+        pygame.draw.circle(self.surface, color, self.convert(pos), radius, int(width))
 
     def convert(self, pos):
         return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)
@@ -247,10 +247,10 @@ class Canvas:
     #     pass
 
     def Blit(self, source: 'pygame.Surface', dest: 'tuple[int,int]' = (0, 0)):
-        self.surface.blit(source, dest)
+        self.surface.blit(source, tuple(dest))
 
     def BlitCanvas(self, source: 'Canvas', dest: 'tuple[int,int]' = (0, 0)):
-        self.surface.blit(source.surface, dest)
+        self.surface.blit(source.surface, tuple(dest))
 
     def Blits(self, sources: 'list[tuple[pygame.Surface,Vector]]'):
         self.surface.blits(sources)  # [(s, p) for p, s in sources])
@@ -269,8 +269,8 @@ class Inputs:
         self._ups = set()
         self._downs = set()
         self._pressed = {}
-        self.mouse_movement = vec(0, 0)
-        self.mouse_position = vec(0, 0)
+        self.mouse_movement = IntVec(0, 0)
+        self.mouse_position = IntVec(0, 0)
         self._mouse_ups = set()
         self._mouse_downs = set()
         self._mouse_pressed = {}
@@ -307,14 +307,14 @@ class Inputs:
         self._downs.clear()
         self._mouse_ups.clear()
         self._mouse_downs.clear()
-        self.mouse_movement = vec(0, 0)
+        self.mouse_movement = IntVec(0, 0)
         for e in events:
             if e.type == pygame.KEYDOWN:
                 self._set_keyDown(e.key)
             elif e.type == pygame.KEYUP:
                 self._set_keyUp(e.key)
             elif e.type == pygame.MOUSEMOTION:
-                self.mouse_position = vec(*e.pos)
+                self.mouse_position = IntVec(*e.pos)
                 self.mouse_movement += e.rel
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 self._set_mouseDown(e.button)
