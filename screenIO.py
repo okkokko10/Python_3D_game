@@ -265,6 +265,9 @@ class CanvasNoZoom(Canvas):
 
 
 class Inputs:
+    # TODO: make it so every mouse movement event is recorded to create a path, not just the last one of the frame.
+    #       make it so you can click or press a key multiple times per frame, and that they have a mouse position associated with them.
+    #       An option for staggering inputs that have been pressed multiple times in one frame. Useful for the mouse wheel
     def __init__(self):
         self._ups = set()
         self._downs = set()
@@ -296,11 +299,13 @@ class Inputs:
 
     def UpdateInputs(self, events, deltaTime):
         for k in self._ups:
-            del self._pressed[k]
+            if k in self._pressed:
+                del self._pressed[k]
         for k in self._pressed:
             self._pressed[k] += deltaTime
         for k in self._mouse_ups:
-            del self._mouse_pressed[k]
+            if k in self._mouse_pressed:
+                del self._mouse_pressed[k]
         for k in self._mouse_pressed:
             self._mouse_pressed[k] += deltaTime
         self._ups.clear()
