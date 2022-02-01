@@ -142,8 +142,8 @@ class Directions:
     LEFT = 1 << 2
     RIGHT = 1 << 3
 
-    def __init__(self, value=0):  # up,down,left,right
-        self._value = value
+    def __init__(self, up=False, down=False, left=False, right=False):  # up,down,left,right
+        self._value = up * Directions.UP + down * Directions.DOWN + left * Directions.LEFT + right * Directions.RIGHT
 
     def iterate(self, distance):
         if distance:
@@ -412,8 +412,8 @@ class sceneA(screenIO.Scene):
             # pin = self.view.get_board().modify_pin(l)
             if pin.default > 0:
                 pin.default -= 1
-        pin.directions.flip(Directions(Directions.UP * updater.inputs.keyDown(screenIO.pygame.K_w) + Directions.LEFT * updater.inputs.keyDown(screenIO.pygame.K_a) +
-                            Directions.RIGHT * updater.inputs.keyDown(screenIO.pygame.K_d) + Directions.DOWN * updater.inputs.keyDown(screenIO.pygame.K_s)))
+        pin.directions.flip(Directions(up=updater.inputs.keyDown(screenIO.pygame.K_w), left=updater.inputs.keyDown(screenIO.pygame.K_a),
+                            right=updater.inputs.keyDown(screenIO.pygame.K_d), down=updater.inputs.keyDown(screenIO.pygame.K_s)))
         if not self.pause or updater.inputs.keyDown(screenIO.pygame.K_e):
             self.board.update()
         if updater.inputs.keyDown(screenIO.pygame.K_r):

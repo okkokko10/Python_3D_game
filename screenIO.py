@@ -1,7 +1,7 @@
 from typing import Callable
 import pygame
 import pygame.gfxdraw
-import numpy as np
+# import numpy as np
 from vector import *
 
 pygame.init()
