@@ -54,9 +54,9 @@ class Vector:
 
     def __rmul__(self, other):
         if isinstance(other, Vector):
-            return self.__class__(*(a.__rmul__(b) for a, b in zip(self, other)))
+            return self.__class__(*(b * a for a, b in zip(self, other)))
         else:
-            return self.__class__(*(a.__rmul__(other) for a in self))
+            return self.__class__(*(other * a for a in self))
 
     def __truediv__(self, other):
         return self.__class__(*(a / (other) for a in self))

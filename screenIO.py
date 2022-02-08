@@ -21,6 +21,9 @@ class ObjectStorage:
     'Empty object for storing objects'
     pass
 
+# TODO: an info attribute to updater, that tells things like age. or just an age attribute
+# Actually, maybe add that to scene
+
 
 class Updater:
     "Updater.Play() to start"
@@ -67,7 +70,6 @@ class Updater:
                 self.scene.o_Update(self)
 
             pygame.display.update()
-        return self
 
     def _Update_inputs(self):
         self.inputs.UpdateInputs(self.events, self.deltaTime)
