@@ -165,7 +165,7 @@ class Canvas:
         pygame.draw.circle(self.surface, color, self.convert(pos), radius, int(width))
 
     def convert(self, pos):
-        return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)
+        return int(pos[0]), int(pos[1])
 
     def convertList(self, poslist):
         return [self.convert(pos) for pos in poslist]
@@ -258,9 +258,9 @@ class Canvas:
         self.surface.blits(sources)  # [(s, p) for p, s in sources])
 
 
-class CanvasNoZoom(Canvas):
+class CanvasZoom(Canvas):
     def convert(self, pos):
-        return int(pos[0]), int(pos[1])
+        return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)
 
     # def convertList(self, poslist):
     #     return [pos.f for pos in poslist]

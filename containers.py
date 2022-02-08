@@ -59,7 +59,7 @@ class Container:
         for child in self.children:
             child.parent = self
             child.shape.parent = self.shape
-        self.canvas = CanvasNoZoom(self.shape.size)
+        self.canvas = Canvas(self.shape.size)
         # self.listening = listening  # whether the container should listen to inputs
 
     def _render(self) -> list[tuple[pygame.Surface, Vector]]:
@@ -183,7 +183,7 @@ if __name__ == '__main__':
             super().__init__(shape, children=children)
             self.closeShape = ContainerShape(*(closeShape or self.shape))
             self.openShape = ContainerShape(*self.shape)
-            self._canvases = [CanvasNoZoom(self.closeShape.size), CanvasNoZoom(self.openShape.size)]
+            self._canvases = [Canvas(self.closeShape.size), Canvas(self.openShape.size)]
 
         @property
         def canvas(self):

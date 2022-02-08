@@ -60,5 +60,4 @@ class main_scene(screenIO.Scene):
 
 
 if __name__ == '__main__':
-    screenIO.Canvas.convert = screenIO.CanvasNoZoom.convert
     screenIO.Updater(main_scene()).Play()

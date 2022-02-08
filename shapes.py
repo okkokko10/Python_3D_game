@@ -375,7 +375,7 @@ def main():
                 canvas.Circle(self.one, 10, (250, 0, 100))
             self.oldmpos = mpos
             pass
-    Updater(A(), CanvasNoZoom(pygame.display.set_mode())).Play()
+    Updater(A(), Canvas(pygame.display.set_mode())).Play()
 
 
 if __name__ == '__main__':

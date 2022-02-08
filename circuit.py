@@ -258,7 +258,7 @@ class View:
         self.tile = Vector.ONE * self.zoom
         self.offset = self.tile / 2
         if canvas is None:
-            self.canvas = screenIO.CanvasNoZoom(self.area * self.zoom)
+            self.canvas = screenIO.Canvas(self.area * self.zoom)
         else:
             self.canvas = canvas
         self.textRender = renderText.RenderText(height=self.zoom // 3, color=(200, 200, 200, 200))
