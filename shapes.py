@@ -11,17 +11,19 @@ class Shape:
 class Reflectable:
     def Hit(self, laser: 'Laser') -> 'list[Vector]':
         "does the laser hit, and where"
+        raise NotImplementedError
 
     def Reflect(self, laser: 'Laser', position: 'Vector') -> 'Laser':
         "Old: which direction is a laser facing towards direction reflected towards when hitting the reflectable at position origin"
+        raise NotImplementedError
 
 
 class Line(Shape, Reflectable):
-    def __init__(self, start: Vector, end: Vector, cap_a=True, cap_b=False):
+    def __init__(self, start: Vector, end: Vector, is_cap_a=True, is_cap_b=False):
         self.a = start
         self.b = end
-        self.cap_a = cap_a
-        self.cap_b = cap_b
+        self.is_cap_a = is_cap_a
+        self.is_cap_b = is_cap_b
         super().__init__()
 
     @staticmethod
@@ -50,9 +52,9 @@ class Line(Shape, Reflectable):
     def isInside(self, point: Vector):
         "it doesn't count if the point is at the end position -- when cap_a and cap_b are default"
         in1 = (point - self.a).dotProduct(self.vector)
-        if ((in1 >= 0) if self.cap_a else (in1 > 0)):
+        if ((in1 >= 0) if self.is_cap_a else (in1 > 0)):
             in2 = -(point - self.b).dotProduct(self.vector)
-            return (in2 >= 0) if self.cap_b else (in2 > 0)
+            return (in2 >= 0) if self.is_cap_b else (in2 > 0)
         else:
             return False
 
@@ -63,9 +65,9 @@ class Line(Shape, Reflectable):
 
     def Draw(self, canvas: 'Canvas', color=(255, 255, 255), width=1):
         canvas.Line(self.a, self.b, width, color)
-        if self.cap_a:
+        if self.is_cap_a:
             canvas.Circle(self.a, width * 3, color)
-        if self.cap_b:
+        if self.is_cap_b:
             canvas.Circle(self.b, width * 3, color)
 
     def Hit(self, laser: 'Laser'):
@@ -115,20 +117,26 @@ class Line(Shape, Reflectable):
 
 
 class Sphere(Shape, Reflectable):
-    _radius = None
 
     def __init__(self, center: Vector, radiusSq: float):
         self.center = center
-        self.radiusSq = radiusSq
+        self.edge = center + Vector(math.sqrt(radiusSq), 0)
         super().__init__()
 
     @property
+    def radiusVector(self):
+        return self.edge - self.center
+
+    @property
+    def radiusSq(self):
+        return self.radiusVector.lengthSq()
+
+    @property
     def radius(self) -> float:
-        if self._radius is None:
-            self._radius = math.sqrt(self.radiusSq)
-        return self._radius
+        return math.sqrt(self.radiusSq)
 
     def Hit(self, laser: 'Laser'):
+        "returns positions where the laser intersects the sphere."
         lsq = laser.line.vector.lengthSq()
         c = (self.center - laser.line.a).complexMul(laser.line.vector.complexConjugate())
         dsq = lsq * self.radiusSq - c.y**2
@@ -149,52 +157,62 @@ class Sphere(Shape, Reflectable):
 
 class Movable:
     def movable_attributes(self) -> tuple[str]:
-        "Override this. Empty string is a keyword for whole"
+        """Override this. Empty string is a keyword for whole.
+        attributes must be absolute positions that can be set independently of each other"""
         return ()
 
     def movable_closest(self, position: Vector) -> tuple[str, float]:
         "Maybe override this. Returns closest attribute, and the squared distance to the attribute"
         def key(k):
-            return (self.get(k) - position).lengthSq()
+            return (self.movable_Get(k) - position).lengthSq()
         a = min(self.movable_attributes(), key=key)
         return a, key(a)
 
     def movable_distanceSq(self, position: Vector) -> float:
         "Override this. Return the square distance to the position, for finding the closest movable"
+        return self.movable_closest(position)[0]
+        # raise NotImplementedError
+
+    def movable_OnPick(self, mover: 'Mover', attr: 'str'):
         pass
 
-    def onPick(self, mover: 'Mover', attr: 'str'):
-        pass
-
-    def get(self, attr: str) -> Vector:
+    def movable_Get(self, attr: str) -> Vector:
         return getattr(self, attr)
 
-    def set(self, attr: str, value: Vector):
+    def movable_Set(self, attr: str, value: Vector):
         assert attr
         setattr(self, attr, value)
 
     def MovePartTo(self, attr: str, position: 'Vector'):
-        self.set(attr, position)
+        self.movable_Set(attr, position)
 
     def Move(self, attr: str, movement: 'Vector'):
         if attr:  # !=""
-            self.set(attr, self.get(attr) + movement)
+            self.movable_Set(attr, self.movable_Get(attr) + movement)
         else:
             self.MoveWhole(movement)
 
     def MoveWhole(self, movement: 'Vector'):
         for k in self.movable_attributes():
-            self.set(k, self.get(k) + movement)
+            self.movable_Set(k, self.movable_Get(k) + movement)
 
     def MoveWholeTo(self, attr: str, position: 'Vector'):
-        self.MoveWhole(position - self.get(attr))
+        self.MoveWhole(position - self.movable_Get(attr))
 
     def Rotozoom(self, center: Vector, zoom: Vector):
         # might be lossy
+        self.Warp(lambda old_pos: (old_pos - center).complexMul(zoom) + center)
+
+    def Rotate(self, center: Vector, start: Vector, stop: Vector):
+        a = start - center
+        b = stop - center
+        self.Rotozoom(center, b.complexDiv(a))
+
+    def Warp(self, func: Callable[[Vector], Vector]):
+        "applies func to attributes"
         for k in self.movable_attributes():
-            g = self.get(k)
-            self.set(k, (g - center).complexMul(zoom) + center)
-        pass
+            old_pos = self.movable_Get(k)
+            self.movable_Set(k, func(old_pos))
 
 
 class MovableLine(Line, Movable):
@@ -203,6 +221,14 @@ class MovableLine(Line, Movable):
 
     def movable_distanceSq(self, position: Vector) -> float:
         return self.distanceSegmentSq()
+
+
+class MovableSphere(Sphere, Movable):
+    def movable_attributes(self) -> tuple[str]:
+        return "center", "edge"
+
+    def movable_distanceSq(self, position: Vector) -> float:
+        return self.movable_closest(position)[1]
 
 # TODO: rotation, highlighting an object
 
@@ -214,19 +240,21 @@ class Mover:
         self._picked = None
         self._pickedAttr = None
         self._down = False
+        "if on the previous frame the mover was pressed down"
         self._whole = False
+        "if the whole Movable is moved"
         pass
 
-    def update(self, position: Vector, down: bool, pickable: list[Movable], whole=False) -> None:
+    def update(self, position: Vector, down: bool, movables: list[Movable], whole=False) -> None:
         self._movement = position - self._position
         self._position = position
         self._whole = whole
-        if self._picked and self._picked not in pickable:
+        if self._picked and self._picked not in movables:
             self._picked, self._pickedAttr = None, None
         if down and not self._down:  # down
-            self._picked, self._pickedAttr = self.findClosest(self._position, pickable)
-            self._picked.onPick(self, self._pickedAttr)
+            self._picked, self._pickedAttr = self.findClosest(self._position, movables)
             if self._picked and self._pickedAttr:  # move the picked point to the cursor, with the other points if total is True
+                self._picked.movable_OnPick(self, self._pickedAttr)
                 if self._whole:
                     self._picked.MoveWholeTo(self._pickedAttr, self._position)
                 else:
@@ -240,11 +268,14 @@ class Mover:
                 self._picked.Move(self._pickedAttr, self._movement)
         self._down = down
 
-    def findClosest(self, position: Vector, pickable: list[Movable], maxDistanceSq=-1) -> tuple[Movable, str] | tuple[None, None]:
+    def findClosest(self, position: Vector, movables: list[Movable], maxDistanceSq=-1) -> tuple[Movable, str] | tuple[None, None]:
         closestP = None
         closestAttr = None
         distanceSq = maxDistanceSq
-        for p in pickable:
+        for p in movables:
+            if not isinstance(p, Movable):
+                raise TypeError("{} is not Movable".format(p))
+                continue
             attr, dsq = p.movable_closest(position)
             if distanceSq > dsq or distanceSq == -1:
                 closestP = p
@@ -347,7 +378,7 @@ def main():
                     self.one = mpos
             if inputs.keyPressed(pygame.K_LEFT) or inputs.mousePressed(6):
                 if self.one:
-                    self.shapes.append(Sphere(self.one, (self.one - mpos).lengthSq()))
+                    self.shapes.append(MovableSphere(self.one, (self.one - mpos).lengthSq()))
                     self.one = None
             movedown = inputs.keyPressed(pygame.K_DOWN) or inputs.mousePressed(3)
             movewhole = inputs.keyPressed(pygame.K_RSHIFT) or inputs.keyPressed(pygame.K_LSHIFT)

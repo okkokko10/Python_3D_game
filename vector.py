@@ -152,6 +152,10 @@ class Vector:
         r = circuits * math.pi * 2
         return cls(math.cos(r), math.sin(r))
 
+    def complexDiv(self, other: 'Vector'):
+        "self / other"
+        self.complexMul(other.complexConjugate()) / other.lengthSq()
+
 
 class IntVec(Vector):
     def __init__(self, x=0, y=0):
