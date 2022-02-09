@@ -4,10 +4,6 @@ from screenIO import *
 from vector import *
 
 
-class Shape:
-    pass
-
-
 class Drawable:
     def Draw(self, canvas: 'Canvas', color=(255, 255, 255), *args, **kwargs):
         # raise NotImplementedError
@@ -49,6 +45,7 @@ MoveAttribute.WHOLE = MoveAttribute(is_special=True)
 
 
 class Movable:
+    parent: "Has_Movable"
 
     def movable_attributes(self) -> Iterable[MoveAttribute]:
         """Override this.
@@ -58,10 +55,12 @@ class Movable:
 
     def movable_Get(self, attr: MoveAttribute) -> Vector:
         "Override this."
+        raise NotImplementedError
         return getattr(self, attr)
 
     def movable_Set(self, attr: MoveAttribute, value: Vector):
         "Override this."
+        raise NotImplementedError
         setattr(self, attr, value)
 
     def movable_Warp(self, attrs: Iterable[MoveAttribute], func: Callable[[Vector], Vector]):
@@ -79,8 +78,8 @@ class Movable:
         return a, key(a)
 
     def movable_distanceSq(self, position: Vector) -> float:
-        "Override this. Return the square distance to the position, for finding the closest movable"
-        return self.movable_closest(position)[0]
+        "Maybe override this. Return the square distance to the position, for finding the closest movable"
+        return self.movable_closest(position)[1]
         # raise NotImplementedError
 
     def movable_OnPick(self, mover: 'Mover', attr: MoveAttribute):
@@ -124,12 +123,43 @@ class Movable:
         self.movable_Warp(self.movable_attributes(), func)
 
 
-class Line(Shape, Reflectable, Drawable, Movable):
+class Has_Movable:
+    "class that tells that the object has a Movable attribute"
+    movable: Movable
+    pass
+
+
+class Shape(Reflectable, Drawable, Has_Movable):
+    pass
+
+
+class Line(Shape):
+    class _Movable(Movable):
+        parent: "Line"
+
+        def __init__(self, parent):
+            self.parent = parent
+
+        _movable_attributes = MoveAttribute("a"), MoveAttribute("b")
+
+        def movable_attributes(self):
+            return self._movable_attributes
+
+        def movable_Get(self, attr: MoveAttribute) -> Vector:
+            return getattr(self.parent, attr.args[0])
+
+        def movable_Set(self, attr: MoveAttribute, value: Vector):
+            setattr(self.parent, attr.args[0], value)
+
+        def movable_distanceSq(self, position: Vector) -> float:
+            return self.parent.distanceSegmentSq()
+
     def __init__(self, start: Vector, end: Vector, is_cap_a=True, is_cap_b=False):
         self.a = start
         self.b = end
         self.is_cap_a = is_cap_a
         self.is_cap_b = is_cap_b
+        self.movable = type(self)._Movable(self)
         super().__init__()
 
     @staticmethod
@@ -230,18 +260,32 @@ class Line(Shape, Reflectable, Drawable, Movable):
         else:
             return (self.a - point).lengthSq()
 
-    def movable_attributes(self):
-        return 'a', 'b'
 
-    def movable_distanceSq(self, position: Vector) -> float:
-        return self.distanceSegmentSq()
+class Sphere(Shape, Reflectable, Drawable):
+    class _Movable(Movable):
+        parent: "Sphere"
 
+        def __init__(self, parent: 'Sphere'):
+            self.parent = parent
 
-class Sphere(Shape, Reflectable, Drawable, Movable):
+        _movable_attributes = MoveAttribute("center"), MoveAttribute("edge")
+
+        def movable_attributes(self):
+            return self._movable_attributes
+
+        def movable_Get(self, attr: MoveAttribute) -> Vector:
+            return getattr(self.parent, attr.args[0])
+
+        def movable_Set(self, attr: MoveAttribute, value: Vector):
+            setattr(self.parent, attr.args[0], value)
+
+        def movable_distanceSq(self, position: Vector) -> float:
+            return self.movable_closest(position)[1]
 
     def __init__(self, center: Vector, radiusSq: float):
         self.center = center
         self.edge = center + Vector(math.sqrt(radiusSq), 0)
+        self.movable = type(self)._Movable(self)
         super().__init__()
 
     @property
@@ -279,12 +323,6 @@ class Sphere(Shape, Reflectable, Drawable, Movable):
         canvas.Circle(self.center, self.radius - width, color, width)
         canvas.Circle(self.center, self.radius + width, color, width)
 
-    def movable_attributes(self):
-        return "center", "edge"
-
-    def movable_distanceSq(self, position: Vector) -> float:
-        return self.movable_closest(position)[1]
-
 
 # TODO: rotation, highlighting an object
 
@@ -296,9 +334,9 @@ class Mover:
         "the position the Mover is at"
         self.movement = Vector(0, 0)
         "the change in self.position from last frame"
-        self.picked = None
+        self.picked: Has_Movable = None
         "the Movable that is being moved"
-        self.picked_attr = None
+        self.picked_attr: MoveAttribute = None
         "the attribute of self.picked that is being moved"
         self.down = False
         "if on the previous frame the mover was pressed down"
@@ -306,40 +344,40 @@ class Mover:
         "if the whole Movable is moved"
         pass
 
-    def update(self, position: Vector, down: bool, movables: list[Movable], whole=False) -> None:
+    def update(self, position: Vector, down: bool, has_movables: list[Has_Movable], whole=False) -> None:
         self.movement = position - self.position
         self.position = position
         self.whole = whole
-        if self.picked and self.picked not in movables:
+        if self.picked and self.picked not in has_movables:
             self.picked, self.picked_attr = None, None
         if down and not self.down:  # down
-            self.picked, self.picked_attr = self.findClosest(self.position, movables)
+            self.picked, self.picked_attr = self.findClosest(self.position, has_movables)
             if self.picked is not None:  # and self.picked_attr:  # if above findClosest returned something else than (None,None)
                 # move the picked point to the cursor, with the other points if total is True
-                self.picked.movable_OnPick(self, self.picked_attr)
+                self.picked.movable.movable_OnPick(self, self.picked_attr)
                 if self.whole:
-                    self.picked.MoveWholeTo(self.picked_attr, self.position)
+                    self.picked.movable.MoveWholeTo(self.picked_attr, self.position)
                 else:
-                    self.picked.MovePartTo(self.picked_attr, self.position)
+                    self.picked.movable.MovePartTo(self.picked_attr, self.position)
         elif self.down and not down:  # up
             self.picked, self.picked_attr = None, None
         elif self.picked is not None and self.down:  # do not execute immediately after picking
             if self.whole:
-                self.picked.MoveWhole(self.movement)
+                self.picked.movable.MoveWhole(self.movement)
             else:
-                self.picked.Move(self.picked_attr, self.movement)
+                self.picked.movable.Move(self.picked_attr, self.movement)
         self.down = down
 
-    def findClosest(self, position: Vector, movables: list[Movable], maxDistanceSq=-1) -> tuple[Movable, MoveAttribute] | tuple[None, None]:
+    def findClosest(self, position: Vector, has_movables: list[Has_Movable], maxDistanceSq=-1) -> tuple[Has_Movable, MoveAttribute] | tuple[None, None]:
         "returns (None,None) if nothing is found"
         closestP = None
         closestAttr = None
         distanceSq = maxDistanceSq
-        for p in movables:
-            if not isinstance(p, Movable):
-                raise TypeError("{} is not Movable".format(p))
-                continue
-            attr, dsq = p.movable_closest(position)
+        for p in has_movables:
+            # if not isinstance(p, Movable):
+            #     raise TypeError("{} is not Movable".format(p))
+            #     continue
+            attr, dsq = p.movable.movable_closest(position)
             if distanceSq > dsq or distanceSq == -1:
                 closestP = p
                 closestAttr = attr
