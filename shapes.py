@@ -47,67 +47,67 @@ MoveAttribute.WHOLE = MoveAttribute(is_special=True)
 class Movable:
     parent: "Has_Movable"
 
-    def movable_attributes(self) -> Iterable[MoveAttribute]:
+    def attributes(self) -> Iterable[MoveAttribute]:
         """Override this.
-        must be an iterable of MoveAttribute objects, containing all attributes that are valid inputs to movable_Get and movable_Set
+        must be an iterable of MoveAttribute objects, containing all attributes that are valid inputs to Get and Set
         attributes must be absolute positions that can be set independently of each other"""
         return ()
 
-    def movable_Get(self, attr: MoveAttribute) -> Vector:
+    def Get(self, attr: MoveAttribute) -> Vector:
         "Override this."
         raise NotImplementedError
         return getattr(self, attr)
 
-    def movable_Set(self, attr: MoveAttribute, value: Vector):
+    def Set(self, attr: MoveAttribute, value: Vector):
         "Override this."
         raise NotImplementedError
         setattr(self, attr, value)
 
-    def movable_Warp(self, attrs: Iterable[MoveAttribute], func: Callable[[Vector], Vector]):
+    def Warp(self, attrs: Iterable[MoveAttribute], func: Callable[[Vector], Vector]):
         "applies func to all given attrs"
         for attr in attrs:
-            self.movable_Set(attr, func(self.movable_Get(attr)))
+            self.Set(attr, func(self.Get(attr)))
             pass
         pass
 
-    def movable_closest(self, position: Vector) -> tuple[MoveAttribute, float]:
+    def closest(self, position: Vector) -> tuple[MoveAttribute, float]:
         "Maybe override this. Returns closest attribute, and the squared distance to the attribute"
         def key(k):
-            return (self.movable_Get(k) - position).lengthSq()
-        a = min(self.movable_attributes(), key=key)
+            return (self.Get(k) - position).lengthSq()
+        a = min(self.attributes(), key=key)
         return a, key(a)
 
-    def movable_distanceSq(self, position: Vector) -> float:
+    def distanceSq(self, position: Vector) -> float:
         "Maybe override this. Return the square distance to the position, for finding the closest movable"
-        return self.movable_closest(position)[1]
+        return self.closest(position)[1]
         # raise NotImplementedError
 
-    def movable_OnPick(self, mover: 'Mover', attr: MoveAttribute):
+    def OnPick(self, mover: 'Mover', attr: MoveAttribute):
         "What happens when a mover picks up this Movable"
         pass
 
     def MovePartTo(self, attr: MoveAttribute, position: 'Vector'):
-        self.movable_Set(attr, position)
+        self.Set(attr, position)
 
     def Move(self, attr: MoveAttribute, movement: 'Vector'):
         if attr == MoveAttribute.WHOLE:
             self.MoveWhole(movement)
         else:
-            self.movable_Set(attr, self.movable_Get(attr) + movement)
+            self.Set(attr, self.Get(attr) + movement)
 
     def MoveWhole(self, movement: 'Vector'):
-        self.Warp(lambda v: v + movement)
+        self.WarpAll(lambda v: v + movement)
         # for k in self.movable_attributes():
         #     self.movable_Set(k, self.movable_Get(k) + movement)
 
     def MoveWholeTo(self, attr: MoveAttribute, position: 'Vector'):
         "offset the Movable so that the given attribute goes in the given position"
-        self.MoveWhole(position - self.movable_Get(attr))
+        self.MoveWhole(position - self.Get(attr))
 
     def Rotozoom(self, center: Vector, zoom: Vector):
         "complex multiplies the Movable by the zoom vector, using center as the origin"
         # might be lossy
-        self.Warp(lambda old_pos: (old_pos - center).complexMul(zoom) + center)
+        self.WarpAll(lambda old_pos: (old_pos - center).complexMul(zoom) + center)
 
     def Rotate(self, center: Vector, start: Vector, stop: Vector):
         "rotates the Movable around the center so that what was at start goes to stop"
@@ -115,12 +115,12 @@ class Movable:
         b = stop - center
         self.Rotozoom(center, b.complexDiv(a))
 
-    def Warp(self, func: Callable[[Vector], Vector]):
+    def WarpAll(self, func: Callable[[Vector], Vector]):
         "applies func to attributes' positions"
         # for k in self.movable_attributes():
         #     old_pos = self.movable_Get(k)
         #     self.movable_Set(k, func(old_pos))
-        self.movable_Warp(self.movable_attributes(), func)
+        self.Warp(self.attributes(), func)
 
 
 class Has_Movable:
@@ -142,16 +142,16 @@ class Line(Shape):
 
         _movable_attributes = MoveAttribute("a"), MoveAttribute("b")
 
-        def movable_attributes(self):
+        def attributes(self):
             return self._movable_attributes
 
-        def movable_Get(self, attr: MoveAttribute) -> Vector:
+        def Get(self, attr: MoveAttribute) -> Vector:
             return getattr(self.parent, attr.args[0])
 
-        def movable_Set(self, attr: MoveAttribute, value: Vector):
+        def Set(self, attr: MoveAttribute, value: Vector):
             setattr(self.parent, attr.args[0], value)
 
-        def movable_distanceSq(self, position: Vector) -> float:
+        def distanceSq(self, position: Vector) -> float:
             return self.parent.distanceSegmentSq()
 
     def __init__(self, start: Vector, end: Vector, is_cap_a=True, is_cap_b=False):
@@ -270,17 +270,17 @@ class Sphere(Shape, Reflectable, Drawable):
 
         _movable_attributes = MoveAttribute("center"), MoveAttribute("edge")
 
-        def movable_attributes(self):
+        def attributes(self):
             return self._movable_attributes
 
-        def movable_Get(self, attr: MoveAttribute) -> Vector:
+        def Get(self, attr: MoveAttribute) -> Vector:
             return getattr(self.parent, attr.args[0])
 
-        def movable_Set(self, attr: MoveAttribute, value: Vector):
+        def Set(self, attr: MoveAttribute, value: Vector):
             setattr(self.parent, attr.args[0], value)
 
-        def movable_distanceSq(self, position: Vector) -> float:
-            return self.movable_closest(position)[1]
+        def distanceSq(self, position: Vector) -> float:
+            return self.closest(position)[1]
 
     def __init__(self, center: Vector, radiusSq: float):
         self.center = center
@@ -354,7 +354,7 @@ class Mover:
             self.picked, self.picked_attr = self.findClosest(self.position, has_movables)
             if self.picked is not None:  # and self.picked_attr:  # if above findClosest returned something else than (None,None)
                 # move the picked point to the cursor, with the other points if total is True
-                self.picked.movable.movable_OnPick(self, self.picked_attr)
+                self.picked.movable.OnPick(self, self.picked_attr)
                 if self.whole:
                     self.picked.movable.MoveWholeTo(self.picked_attr, self.position)
                 else:
@@ -377,7 +377,7 @@ class Mover:
             # if not isinstance(p, Movable):
             #     raise TypeError("{} is not Movable".format(p))
             #     continue
-            attr, dsq = p.movable.movable_closest(position)
+            attr, dsq = p.movable.closest(position)
             if distanceSq > dsq or distanceSq == -1:
                 closestP = p
                 closestAttr = attr
