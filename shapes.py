@@ -1,4 +1,6 @@
 
+from itertools import chain
+from typing import Any
 from screenIO import *
 
 from vector import *
@@ -17,16 +19,18 @@ class Drawable:
 
 
 class Reflectable:
-    def Hit(self, laser: 'Laser') -> 'list[Vector]':
-        "does the laser hit, and where"
+    def Hit(self, laser: 'Laser') -> list[tuple[Vector, Any]]:
+        "does the laser hit, and where + extra information which is given to Reflect"
         raise NotImplementedError
 
-    def Reflect(self, laser: 'Laser', position: 'Vector') -> 'Laser':
+    def Reflect(self, laser: 'Laser', position: 'Vector', extra_info: Any = None) -> 'Laser':
         "Old: which direction is a laser facing towards direction reflected towards when hitting the reflectable at position origin"
         raise NotImplementedError
 
 
 class MoveAttribute:
+    "immutable"
+
     def __init__(self, *args, is_special=False):
         self.args = args
         self.is_special = is_special
@@ -38,14 +42,22 @@ class MoveAttribute:
     def __hash__(self):
         return hash(self.args)
     WHOLE: "MoveAttribute"
+    "sentinel for movable that means all attributes"
 
 
 MoveAttribute.WHOLE = MoveAttribute(is_special=True)
-"sentinel for movable that means all attributes"
 
 
 class Movable:
+    """Override needed when subclassing:
+    attributes
+    Get
+    Set
+    """
     parent: "Has_Movable"
+
+    def __init__(self, parent: "Has_Movable"):
+        self.parent = parent
 
     def attributes(self) -> Iterable[MoveAttribute]:
         """Override this.
@@ -67,8 +79,6 @@ class Movable:
         "applies func to all given attrs"
         for attr in attrs:
             self.Set(attr, func(self.Get(attr)))
-            pass
-        pass
 
     def closest(self, position: Vector) -> tuple[MoveAttribute, float]:
         "Maybe override this. Returns closest attribute, and the squared distance to the attribute"
@@ -136,9 +146,6 @@ class Shape(Reflectable, Drawable, Has_Movable):
 class Line(Shape):
     class _Movable(Movable):
         parent: "Line"
-
-        def __init__(self, parent):
-            self.parent = parent
 
         _movable_attributes = MoveAttribute("a"), MoveAttribute("b")
 
@@ -218,11 +225,11 @@ class Line(Shape):
     def Hit(self, laser: 'Laser'):
         a = self.Intersection(laser.line)
         if a and self.isInside(a):
-            return [a]
+            return [(a, None)]
         else:
             return []
 
-    def Reflect(self, laser: 'Laser', position: 'Vector') -> 'Laser':
+    def Reflect(self, laser: 'Laser', position: 'Vector', extra_info: None) -> 'Laser':
         return Laser(position, self.vector.reflect(laser.line.vector))
 
     def __str__(self) -> str:
@@ -252,6 +259,7 @@ class Line(Shape):
             return (self.a - point).length()
 
     def distanceSegmentSq(self, point: Vector) -> float:
+        "returns the distance to the closest point on the line segment."
         if (point - self.a).dotProduct(self.vector) > 0:
             if -(point - self.b).dotProduct(self.vector) > 0:
                 return self.distanceSq(point)
@@ -261,12 +269,9 @@ class Line(Shape):
             return (self.a - point).lengthSq()
 
 
-class Sphere(Shape, Reflectable, Drawable):
+class Sphere(Shape):
     class _Movable(Movable):
         parent: "Sphere"
-
-        def __init__(self, parent: 'Sphere'):
-            self.parent = parent
 
         _movable_attributes = MoveAttribute("center"), MoveAttribute("edge")
 
@@ -279,8 +284,8 @@ class Sphere(Shape, Reflectable, Drawable):
         def Set(self, attr: MoveAttribute, value: Vector):
             setattr(self.parent, attr.args[0], value)
 
-        def distanceSq(self, position: Vector) -> float:
-            return self.closest(position)[1]
+        # def distanceSq(self, position: Vector) -> float:
+        #     return self.closest(position)[1]
 
     def __init__(self, center: Vector, radiusSq: float):
         self.center = center
@@ -309,11 +314,11 @@ class Sphere(Shape, Reflectable, Drawable):
             return []
         v = laser.line.vector / lsq
         if dsq == 0:
-            return [c.x * v + laser.line.a]
+            return [(c.x * v + laser.line.a, None)]
         d = math.sqrt(dsq)
-        return [(c.x + d) * v + laser.line.a, (c.x - d) * v + laser.line.a]
+        return [((c.x + d) * v + laser.line.a, None), ((c.x - d) * v + laser.line.a, None)]
 
-    def Reflect(self, laser: 'Laser', position: 'Vector') -> 'Laser':
+    def Reflect(self, laser: 'Laser', position: 'Vector', extra_info: None) -> 'Laser':
         return Laser(position, (position - self.center).complexMul(Vector(0, 1)).reflect(laser.line.vector))
 
     def Draw(self, canvas: 'Canvas', color=(255, 255, 255), width=1):
@@ -322,6 +327,72 @@ class Sphere(Shape, Reflectable, Drawable):
     def Glow(self, canvas: 'Canvas', color=(100, 255, 100), width=1):
         canvas.Circle(self.center, self.radius - width, color, width)
         canvas.Circle(self.center, self.radius + width, color, width)
+
+
+class ShapeCombination(Shape):
+    class _Movable(Movable):
+        # TODO: make overridden distanceSq in subshapes work
+        #       make combining attributes possible
+        #       maybe put the methods that don't override Movable in ShapeCombination
+        parent: "ShapeCombination"
+        # bonds: dict[MoveAttribute, tuple[Callable[[Vector, list[tuple[Vector, Vector]]], Vector], list[MoveAttribute]]]
+        # bonds: list[tuple[list[MoveAttribute], Callable[["ShapeCombination", int, Vector],None]]]
+        # "the callable is of the form: func(self,changedIndex)"
+        binds: dict[MoveAttribute, set[MoveAttribute]]
+
+        def __init__(self, parent: "ShapeCombination"):
+            super().__init__(parent)
+            self.binds = {}
+
+        def attributes(self):
+            return tuple(MoveAttribute(shape, attribute) for shape in self.parent.shapes for attribute in shape.movable.attributes())
+
+        def Get(self, attr: MoveAttribute) -> Vector:
+            return attr.args[0].movable.Get(attr.args[1])
+            # return getattr(self.parent, attr.args[0])
+
+        def Set(self, attr: MoveAttribute, value: Vector):
+            # TODO: this will not work
+            # for attr1 in self.get_bound(attr):
+            attr.args[0].movable.Set(attr.args[1], value)
+
+        def update(self, attr: MoveAttribute) -> None:
+
+            pass
+
+        # def Set_bond_oneway(self, attr: MoveAttribute, func: Callable[[Vector, list[tuple[Vector, Vector]]], Vector], connections: list[MoveAttribute]):
+        #     """when one of the connections changes, func is called with the attr's position and the list of all connections' old and new positions.
+        #     func should return attr's new position
+        #     always do it both ways"""
+        #     self.bonds[attr] = func, connections
+        def Bind(self, attributes: set[MoveAttribute]) -> None:
+            # self.binds is a network, where self.binds[x] is the set in which all attributes connected to x are.
+            # if a and b are connected, then self.binds[a] and self.binds[b] refer to the same set, which contains both a and b
+            bunch = set(attributes)
+            for attr in attributes:
+                if attr in self.binds:
+                    bunch.update(self.binds[attr])
+            for attr in bunch:
+                self.binds[attr] = bunch
+
+                # b = self.binds.setdefault(attr, {attr})
+                # for a in list(b):
+                #     self.binds[a].update(attributes)
+        def get_bound(self, attr: MoveAttribute):
+            return self.binds[attr]
+
+    def __init__(self, *shapes: Shape):
+        self.shapes = list(shapes)
+        self.movable = type(self)._Movable(self)
+        pass
+
+    def Hit(self, laser: 'Laser'):
+
+        return list(chain(*(shape.Hit(laser) for shape in self.shapes)))
+
+    def Reflect(self, laser: 'Laser', position: 'Vector', extra_info: Any = None) -> 'Laser':
+        return super().Reflect(laser, position)
+    pass
 
 
 # TODO: rotation, highlighting an object
@@ -406,7 +477,7 @@ class Laser:
             # if w.dotProduct(v) > 0:
             #     w *= -1
             if len(hits) == 1:
-                a = hits[0].Reflect(self, point)
+                a = hits[0][0].Reflect(self, point, hits[0][1])
             else:
                 w = -self.line.vector
                 a = Laser(point, w)
@@ -415,19 +486,20 @@ class Laser:
             return self, 0
 
     def ClosestHit(self, reflectors: set[Reflectable]):
+        "returns a list of tuples containing a Reflectable object which the Laser hits at a point and extra information about that hit, and a point"
         distance = -1
         point = None
         hits = []
         for r in (reflectors):
-            for a in r.Hit(self):
+            for a, extra in r.Hit(self):
                 d = self.line.dotProduct(a)
                 if d > 0.000000001:
                     if distance >= d or distance == -1:
                         if distance == d:
-                            hits.append(r)
+                            hits.append((r, extra))
                         else:
                             point = a
-                            hits = [r]
+                            hits = [(r, extra)]
                             distance = d
         # if set(self.sources).intersection(hits):
         #     print(point, self.line.a, point - self.line.a, (point - self.line.a).x == 0, distance)
@@ -471,15 +543,29 @@ def main():
             inputs = updater.get_inputs()
             canvas = updater.get_canvas()
             mpos = Vector(*inputs.get_mouse_position()).round(GRID) + GRID / 2
+
+            adding = inputs.keyDown(pygame.K_LCTRL) or inputs.keyDown(pygame.K_RIGHT)
             if inputs.keyDown(pygame.K_UP) or inputs.mouseDown(1):
                 if self.one:
-                    self.shapes.append(Line(self.one, mpos))
+                    a = Line(self.one, mpos)
+                    if adding:
+                        b = ShapeCombination(self.shapes[-1], a)
+                        self.shapes.pop(-1)
+                        self.shapes.append(b)
+                    else:
+                        self.shapes.append(a)
                     self.one = None
                 else:
                     self.one = mpos
             if inputs.keyPressed(pygame.K_LEFT) or inputs.mousePressed(6):
                 if self.one:
-                    self.shapes.append(Sphere(self.one, (self.one - mpos).lengthSq()))
+                    a = Sphere(self.one, (self.one - mpos).lengthSq())
+                    if adding:
+                        b = ShapeCombination(self.shapes[-1], a)
+                        self.shapes.pop(-1)
+                        self.shapes.append(b)
+                    else:
+                        self.shapes.append(a)
                     self.one = None
             movedown = inputs.keyPressed(pygame.K_DOWN) or inputs.mousePressed(3)
             movewhole = inputs.keyPressed(pygame.K_RSHIFT) or inputs.keyPressed(pygame.K_LSHIFT)
