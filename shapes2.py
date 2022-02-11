@@ -1,28 +1,59 @@
 # TODO: if you can't move something a certain way, it won't do anything
 
 import math
-from typing import Any, Iterable, Generic, TypeVar
+from typing import Any, Callable, Iterable, Generic, TypeVar
 import sympy
 import screenIO
 import pygame
 from vector import Vector
 import renderText
 _VT = TypeVar('_VT')
+_A = TypeVar('_A')
+
+
+class Color(tuple):
+    def __new__(cls, *args):
+        return tuple.__new__(cls, args)
+    pass
 
 
 class Attribute(Generic[_VT]):
     def __init__(self, value: _VT, name=""):
-        self.value = value
+        self._value = value
         self.name = name
 
     def Set(self, value: _VT):
-        self.value = value
+        self._value = value
 
     def Get(self) -> _VT:
-        return self.value
+        return self._value
+
+    @property
+    def value(self):
+        return self.Get()
+
+    @value.setter
+    def value(self, value: _VT):
+        self.Set(value)
 
 
-class AttributeHolder(Generic[_VT]):
+class AttributeMap(Attribute[_VT], Generic[_VT]):
+    def __init__(self, *attributes: _A, getter: Callable[[_A], _VT], setter: Callable[[_A, _VT], None] = None, name=""):
+        self.attributes = attributes
+        self.name = name
+        self.getter = getter
+        self.setter = setter
+
+    def Set(self, value: _VT):
+        if self.setter is None:
+            raise TypeError(f"{self}{' named ' if self.name else ''}{self.name} is read-only")
+        self.setter(*self.attributes, value)
+
+    def Get(self) -> _VT:
+        return self.getter(*self.attributes)
+
+
+class AttributeHolder(Attribute[_VT], Generic[_VT]):
     def __init__(self, attribute: Attribute[_VT] = None, name=""):
         self.attribute = attribute
 
@@ -36,6 +67,14 @@ class AttributeHolder(Generic[_VT]):
 
     def Get(self):
         return self.attribute.Get()
+
+    @property
+    def value(self):
+        return self.Get()
+
+    @value.setter
+    def value(self, value: _VT):
+        self.Set(value)
 
 
 class AttributeSet(Generic[_VT]):
@@ -112,44 +151,50 @@ class GameObject:
     def Draw(self, canvas: screenIO.Canvas):
         pass
 
-    def Glow(self, canvas: screenIO.Canvas, color):
+    def Glow(self, canvas: screenIO.Canvas, color: Attribute[Color]):
         pass
 
     def DistanceSq(self, pos: Attribute[Vector]) -> float:
         raise NotImplementedError()
 
-    def get_editable(self) -> list[Attribute]:
-        raise NotImplementedError()
+    def get_editable(self) -> list[AttributeHolder]:
+        return []
 
 
-class Points:
+class GameObjectList:
     def __init__(self):
-        self.points: AttributeSet[Vector] = AttributeSet()
+        self.gameObjects: set[GameObject] = set()
 
-    def Closest(self, pos: Attribute[Vector]):
-        p = pos.Get()
+    def Add(self, *gameObjects: GameObject):
+        self.gameObjects.update(gameObjects)
 
-        def key(a: Attribute[Vector]):
-            return (a.Get() - p).lengthSq()
-        return min(self.points.Iterate(), key=key, default=None)
-
-    def Sorted_by_distance(self, pos: Attribute[Vector]):
-        p = pos.Get()
-
-        def key(a: Attribute[Vector]):
-            return (a.Get() - p).lengthSq()
-        return sorted(self.points.Iterate(), key=key)
+    def Remove(self, *gameObjects: GameObject):
+        self.gameObjects.difference_update(gameObjects)
 
     def Draw(self, canvas: screenIO.Canvas):
-        color = (255, 125, 255)
-        for pa in self.points.Iterate():
-            v = pa.Get()
-            canvas.Circle(v, 1, color)
+        for go in self.gameObjects:
+            go.Draw(canvas)
 
-    def Create(self, pos: Vector):
-        a = Attribute(pos)
-        self.points.Add(a)
-        return a
+    def Iterator(self):
+        return self.gameObjects
+
+
+class Point(GameObject):
+    def __init__(self, pos: Attribute[Vector]):
+        self.position = AttributeHolder(pos)
+        self.color = AttributeHolder(Attribute(Color(255, 0, 100)))
+
+    def Draw(self, canvas: screenIO.Canvas):
+        canvas.Circle(self.position.Get(), 2, self.color.Get())
+
+    def Glow(self, canvas: screenIO.Canvas, color: Attribute[Color]):
+        canvas.Circle(self.position.Get(), 3, color.Get(), 1)
+
+    def DistanceSq(self, pos: Attribute[Vector]) -> float:
+        return (self.position.Get() - pos.Get()).lengthSq()
+
+    def get_editable(self) -> list[AttributeHolder]:
+        return [self.position]
 
 
 class Editor:
@@ -157,7 +202,36 @@ class Editor:
         self.selected: list[GameObject] = []
         self.hold = AttributeHolder(Attribute(False))
         self.color = AttributeHolder(Attribute((100, 255, 100)))
-        self.position = AttributeHolder(Attribute(Vector(0, 0)))
+        self.picker_position = AttributeHolder(Attribute(Vector(0, 0)))
+        self.max_pick_range = AttributeHolder(Attribute(50))
+        self.mode = AttributeHolder(Attribute(0))
+        # TODO: create, destroy,
+        "0: pick, 1: move, 2: rotate around pivot, 3: scale around pivot, 4: rotate/scale around pivot, 5: stretch normal to two pivots, 6: link selected attributes"
+        self.pivot_max_amount = AttributeHolder(
+            AttributeMap(
+                self.mode,
+                getter=lambda mode: [0, 0, 1, 1, 1, 2, 0][mode.value],
+                setter=None,
+                name="pivot max count"
+            ))
+        # defining an AttributeMap for a list that discards all but the topmost max_amount items
+
+        def getter(pos_list: Attribute[list[Vector]], max_amount: Attribute[int]) -> list[Vector]:
+            if len(pos_list.value) > max_amount.value:
+                pos_list.value = pos_list.value[len(pos_list.value) - max_amount.value:]
+            return pos_list.value
+
+        def setter(pos_list: Attribute[list[Vector]], max_amount: Attribute[int], value: list[Vector]):
+            pos_list.value = value
+            getter(pos_list, max_amount)
+        self.pivot_positions = AttributeHolder(
+            AttributeMap(
+                Attribute([], name="pivot position list"), self.pivot_max_amount,
+                getter=getter,
+                setter=setter,
+                name="pivot positions"
+            ))
+
         self.renderText = renderText.RenderText(50, self.color)
 
     def Select(self, *selected: GameObject, hold=False):
@@ -166,26 +240,38 @@ class Editor:
         else:
             self.selected = list(selected)
 
-    def Set_position(self, pos: Vector):
-        self.position.Set(pos)
+    # def Set_position(self, pos: Vector):
+    #     self.position.Set(pos)
 
     def Draw(self, canvas: screenIO.Canvas):
+        canvas.Circle(self.picker_position.value, self.max_pick_range.value, self.color.value, 1)
         for s in self.selected:
             s.Glow(canvas, self.color)
-        # self.renderText.RenderLines(renderText.Text(), self.color)
+        text = self.renderText.RenderLines(renderText.Text(f"mode: {self.mode.value}"), self.color.value)
+        canvas.Blit(text, self.picker_position.value)
+        for p in self.pivot_positions.value:
+            canvas.Circle(p, 3, self.color.value, 1)
+            pass
 
-    def Pressed_Select(self, choices: list[GameObject]):
-        closest = min(choices, key=lambda g: g.DistanceSq(self.position))
-        self.Select(closest, hold=self.hold.Get())
+    def Do_Select(self, choices: list[GameObject]):
+        closest = min(choices, key=lambda g: g.DistanceSq(self.picker_position), default=None)
+        if closest is not None and closest.DistanceSq(self.picker_position) <= self.max_pick_range.value**2:
+            self.Select(closest, hold=self.hold.Get())
+
+    def Do_CreatePivot(self):
+        self.pivot_positions.value += [self.picker_position.value]
+
+    def Do_ChangeMode(self, amount: int):
+        self.mode.value = (self.mode.value + amount) % 7
 
 
 def main():
     class A(screenIO.Scene):
         def o_Init(self, updater: screenIO.Updater):
             self.attributes = {"mpos": AttributeHolder(Attribute(Vector(0, 0), "mouse_position"))}
-            self.points = Points()
+            self.gameObjects = GameObjectList()
             self.editor = Editor()
-            self.editor.position.SetAttribute(self.attributes["mpos"].attribute)
+            self.editor.picker_position.SetAttribute(self.attributes["mpos"].attribute)
             pass
 
         def o_Update(self, updater: screenIO.Updater):
@@ -194,9 +280,18 @@ def main():
             mpos = inputs.get_mouse_position()
             self.attributes["mpos"].Set(mpos)
             if inputs.keyPressed(pygame.K_w):
-                self.points.Create(mpos)
+                self.gameObjects.Add(Point(Attribute(mpos)))
+            if inputs.keyDown(pygame.K_s) or inputs.mouseDown(1):
+                self.editor.Do_Select(self.gameObjects.Iterator())
+            if inputs.keyDown(pygame.K_d):
+                self.editor.Do_CreatePivot()
+            if inputs.mouseDown(4):
+                self.editor.Do_ChangeMode(1)
+            if inputs.mouseDown(5):
+                self.editor.Do_ChangeMode(-1)
             canvas.Fill((100, 100, 255))
-            self.points.Draw(canvas)
+            self.gameObjects.Draw(canvas)
+            self.editor.Draw(canvas)
             pass
     screenIO.Updater(A(), screenIO.Canvas(pygame.display.set_mode())).Play()
 
