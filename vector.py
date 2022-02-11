@@ -11,12 +11,12 @@ class Vector:
 
     @property
     def x(self): return self._x
-    @x.setter
-    def x(self, value: float): self._x = value
+    # @x.setter
+    # def x(self, value: float): self._x = value
     @property
     def y(self): return self._y
-    @y.setter
-    def y(self, value: float): self._y = value
+    # @y.setter
+    # def y(self, value: float): self._y = value
 
     def __getitem__(self, i):
         return self.y if i else self.x
@@ -61,29 +61,29 @@ class Vector:
     def __truediv__(self, other):
         return self.__class__(*(a / (other) for a in self))
 
-    def __le__(self, other):
-        return self.__class__(*(a.__le__(b) for a, b in zip(self, other)))
+    # def __le__(self, other):
+    #     return self.__class__(*(a.__le__(b) for a, b in zip(self, other)))
 
-    def __lt__(self, other):
-        return self.__class__(*(a.__lt__(b) for a, b in zip(self, other)))
+    # def __lt__(self, other):
+    #     return self.__class__(*(a.__lt__(b) for a, b in zip(self, other)))
 
-    def __ge__(self, other):
-        return self.__class__(*(a.__ge__(b) for a, b in zip(self, other)))
+    # def __ge__(self, other):
+    #     return self.__class__(*(a.__ge__(b) for a, b in zip(self, other)))
 
-    def __gt__(self, other):
-        return self.__class__(*(a.__gt__(b) for a, b in zip(self, other)))
+    # def __gt__(self, other):
+    #     return self.__class__(*(a.__gt__(b) for a, b in zip(self, other)))
 
     def __neg__(self):
-        return self.__class__(*(a.__neg__() for a in self))
+        return self.__class__(*(-a for a in self))
 
     def __pos__(self):
-        return self.__class__(*(a.__pos__() for a in self))
+        return self.__class__(*(+a for a in self))
 
-    def __floor__(self):
-        return self.__class__(*(a.__floor__() for a in self))
+    # def __floor__(self):
+    #     return self.__class__(*(a.__floor__() for a in self))
 
-    def __int__(self):
-        return self.__class__(*(a.__int__() for a in self))
+    # def __int__(self):
+    #     return self.__class__(*(a.__int__() for a in self))
         # return IntVec(*self)
 
     def __str__(self):
@@ -129,7 +129,7 @@ class Vector:
         return self.__class__(-self.y, self.x)
 
     def __eq__(self, other) -> bool:
-        return all(a == b for a, b in zip(self, other))
+        return len(self) == len(other) and all(a == b for a, b in zip(self, other))
 
     def __floordiv__(self, other):
         return self.__class__(*(a // (other) for a in self))

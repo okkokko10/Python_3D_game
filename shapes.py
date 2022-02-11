@@ -392,7 +392,14 @@ class ShapeCombination(Shape):
 
     def Reflect(self, laser: 'Laser', position: 'Vector', extra_info: Any = None) -> 'Laser':
         return super().Reflect(laser, position)
-    pass
+
+    def Draw(self, canvas: 'Canvas', color=(255, 255, 255), *args, **kwargs):
+        for shape in self.shapes:
+            shape.Draw(canvas, color, *args, **kwargs)
+
+    def Glow(self, canvas: 'Canvas', color=(100, 255, 100), *args, **kwargs):
+        for shape in self.shapes:
+            shape.Glow(canvas, color, *args, **kwargs)
 
 
 # TODO: rotation, highlighting an object
@@ -544,7 +551,7 @@ def main():
             canvas = updater.get_canvas()
             mpos = Vector(*inputs.get_mouse_position()).round(GRID) + GRID / 2
 
-            adding = inputs.keyDown(pygame.K_LCTRL) or inputs.keyDown(pygame.K_RIGHT)
+            adding = inputs.keyPressed(pygame.K_LCTRL) or inputs.keyPressed(pygame.K_RIGHT)
             if inputs.keyDown(pygame.K_UP) or inputs.mouseDown(1):
                 if self.one:
                     a = Line(self.one, mpos)

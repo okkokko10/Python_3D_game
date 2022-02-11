@@ -274,11 +274,11 @@ class Inputs:
         self._ups = set()
         self._downs = set()
         self._pressed = {}
-        self.mouse_movement = IntVec(0, 0)
-        self.mouse_position = IntVec(0, 0)
+        self.mouse_movement = Vector(0, 0)
         self._mouse_ups = set()
         self._mouse_downs = set()
         self._mouse_pressed = {}
+        self._mouse_path: list[Vector] = [Vector(0, 0)]  # TODO: make it possible to see whether mouse buttons are pressed at a point in the path
         pass
 
     def _set_keyDown(self, key):
@@ -314,14 +314,15 @@ class Inputs:
         self._downs.clear()
         self._mouse_ups.clear()
         self._mouse_downs.clear()
-        self.mouse_movement = IntVec(0, 0)
+        self.mouse_movement = Vector(0, 0)
+        self._mouse_path = [self._mouse_path[-1]]
         for e in events:
             if e.type == pygame.KEYDOWN:
                 self._set_keyDown(e.key)
             elif e.type == pygame.KEYUP:
                 self._set_keyUp(e.key)
             elif e.type == pygame.MOUSEMOTION:
-                self.mouse_position = IntVec(*e.pos)
+                self._mouse_path.append(Vector(*e.pos))
                 self.mouse_movement += e.rel
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 self._set_mouseDown(e.button)
@@ -361,7 +362,8 @@ class Inputs:
         return pygame.display.get_surface()
 
     def get_mouse_movement(self): return self.mouse_movement
-    def get_mouse_position(self): return self.mouse_position
+    def get_mouse_position(self): return self._mouse_path[-1]
+    def get_mouse_path(self): return self._mouse_path
 
     def WASD(self):
         return vec(self.keyPressed(pygame.K_d) - self.keyPressed(pygame.K_a),
