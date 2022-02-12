@@ -17,7 +17,7 @@ class Color(tuple):
     pass
 
 
-class Attribute(Generic[_VT]):
+class Variable(Generic[_VT]):
     def __init__(self, value: _VT, name=""):
         self._value = value
         self.name = name
@@ -37,9 +37,13 @@ class Attribute(Generic[_VT]):
         self.Set(value)
 
 
-class AttributeMap(Attribute[_VT], Generic[_VT]):
-    def __init__(self, *attributes: _A, getter: Callable[[_A], _VT], setter: Callable[[_A, _VT], None] = None, name=""):
-        self.attributes = attributes
+class VariableMap(Variable[_VT], Generic[_VT]):
+    def __init__(self, *variables: _A, getter: Callable[[_A], _VT], setter: Callable[[_VT, _A], None] = None, name=""):
+        """getter is a function that takes variables as input (in unpacked form), and outputs the return value of Get()
+        setter ís a function that takes as input the input value of Set(), and  then variables
+        name does nothing except make things more clear
+        It is currently impossible to typehint Callables with arbitrarily many arguments, TypeVarTuple is coming out in Python 3.11"""
+        self.variables = variables
         self.name = name
         self.getter = getter
         self.setter = setter
@@ -47,26 +51,26 @@ class AttributeMap(Attribute[_VT], Generic[_VT]):
     def Set(self, value: _VT):
         if self.setter is None:
             raise TypeError(f"{self}{' named ' if self.name else ''}{self.name} is read-only")
-        self.setter(*self.attributes, value)
+        self.setter(value, *self.variables)
 
     def Get(self) -> _VT:
-        return self.getter(*self.attributes)
+        return self.getter(*self.variables)
 
 
-class AttributeHolder(Attribute[_VT], Generic[_VT]):
-    def __init__(self, attribute: Attribute[_VT] = None, name=""):
-        self.attribute = attribute
+class VariableHolder(Variable[_VT], Generic[_VT]):
+    def __init__(self, variable: Variable[_VT] = None, name=""):
+        self.variable = variable
 
-    def SetAttribute(self, attribute: Attribute[_VT]):
-        if self.attribute is not None:
+    def SetVariable(self, variable: Variable[_VT]):
+        if self.variable is not None:
             pass
-        self.attribute = attribute
+        self.variable = variable
 
     def Set(self, value: _VT):
-        self.attribute.Set(value)
+        self.variable.Set(value)
 
     def Get(self):
-        return self.attribute.Get()
+        return self.variable.Get()
 
     @property
     def value(self):
@@ -77,24 +81,24 @@ class AttributeHolder(Attribute[_VT], Generic[_VT]):
         self.Set(value)
 
 
-class AttributeSet(Generic[_VT]):
-    def __init__(self):
-        self.attributes: set[Attribute[_VT]] = set()
-        pass
+# class VariableSet(Generic[_VT]):
+#     def __init__(self):
+#         self.variables: set[Variable[_VT]] = set()
+#         pass
 
-    def Add(self, *attributes: Attribute):
-        self.attributes.update(attributes)
+#     def Add(self, *variables: Variable):
+#         self.variables.update(variables)
 
-    def Remove(self, *attributes: Attribute):
-        self.attributes.difference_update(attributes)
+#     def Remove(self, *variables: Variable):
+#         self.variables.difference_update(variables)
 
-    def Iterate(self):
-        return self.attributes
+#     def Iterate(self):
+#         return self.variables
 
-# class AttributeList:
-#     def __init__(self, parent, attributes: dict[Any, Any]) -> None:
+# class VariableList:
+#     def __init__(self, parent, variables: dict[Any, Any]) -> None:
 #         self.parent = parent
-#         self.attributes = dict((k, Attribute(self, v)) for k, v in attributes.items())
+#         self.variables = dict((k, Variable(self, v)) for k, v in variables.items())
 
 
 class Shape:
@@ -107,9 +111,9 @@ class Shape:
 
 
 class Circle(Shape):
-    def __init__(self, center: Attribute[Vector], edge: Attribute[Vector]):
-        self.center = AttributeHolder(center, "center")
-        self.edge = AttributeHolder(edge, "edge")
+    def __init__(self, center: Variable[Vector], edge: Variable[Vector]):
+        self.center = VariableHolder(center, "center")
+        self.edge = VariableHolder(edge, "edge")
 
     @property
     def radiusSq(self):
@@ -129,9 +133,9 @@ class Circle(Shape):
 
 
 class Line(Shape):
-    def __init__(self, a: Attribute[Vector], b: Attribute[Vector]):
-        self.a = AttributeHolder(a)
-        self.b = AttributeHolder(b)
+    def __init__(self, a: Variable[Vector], b: Variable[Vector]):
+        self.a = VariableHolder(a)
+        self.b = VariableHolder(b)
 
     def Draw(self, canvas: screenIO.Canvas):
         color = (255, 255, 255)
@@ -151,13 +155,13 @@ class GameObject:
     def Draw(self, canvas: screenIO.Canvas):
         pass
 
-    def Glow(self, canvas: screenIO.Canvas, color: Attribute[Color]):
+    def Glow(self, canvas: screenIO.Canvas, color: Variable[Color]):
         pass
 
-    def DistanceSq(self, pos: Attribute[Vector]) -> float:
+    def DistanceSq(self, pos: Variable[Vector]) -> float:
         raise NotImplementedError()
 
-    def get_editable(self) -> list[AttributeHolder]:
+    def get_editable(self) -> list[VariableHolder]:
         return []
 
 
@@ -180,53 +184,53 @@ class GameObjectList:
 
 
 class Point(GameObject):
-    def __init__(self, pos: Attribute[Vector]):
-        self.position = AttributeHolder(pos)
-        self.color = AttributeHolder(Attribute(Color(255, 0, 100)))
+    def __init__(self, pos: Variable[Vector]):
+        self.position = VariableHolder(pos)
+        self.color = VariableHolder(Variable(Color(255, 0, 100)))
 
     def Draw(self, canvas: screenIO.Canvas):
         canvas.Circle(self.position.Get(), 2, self.color.Get())
 
-    def Glow(self, canvas: screenIO.Canvas, color: Attribute[Color]):
+    def Glow(self, canvas: screenIO.Canvas, color: Variable[Color]):
         canvas.Circle(self.position.Get(), 3, color.Get(), 1)
 
-    def DistanceSq(self, pos: Attribute[Vector]) -> float:
+    def DistanceSq(self, pos: Variable[Vector]) -> float:
         return (self.position.Get() - pos.Get()).lengthSq()
 
-    def get_editable(self) -> list[AttributeHolder]:
+    def get_editable(self) -> list[VariableHolder]:
         return [self.position]
 
 
 class Editor:
     def __init__(self):
         self.selected: list[GameObject] = []
-        self.hold = AttributeHolder(Attribute(False))
-        self.color = AttributeHolder(Attribute((100, 255, 100)))
-        self.picker_position = AttributeHolder(Attribute(Vector(0, 0)))
-        self.max_pick_range = AttributeHolder(Attribute(50))
-        self.mode = AttributeHolder(Attribute(0))
+        self.hold = VariableHolder(Variable(False))
+        self.color = VariableHolder(Variable((100, 255, 100)))
+        self.picker_position = VariableHolder(Variable(Vector(0, 0)))
+        self.max_pick_range = VariableHolder(Variable(50))
+        self.mode = VariableHolder(Variable(0))
         # TODO: create, destroy,
-        "0: pick, 1: move, 2: rotate around pivot, 3: scale around pivot, 4: rotate/scale around pivot, 5: stretch normal to two pivots, 6: link selected attributes"
-        self.pivot_max_amount = AttributeHolder(
-            AttributeMap(
+        "0: pick, 1: move, 2: rotate around pivot, 3: scale around pivot, 4: rotate/scale around pivot, 5: stretch normal to two pivots, 6: link selected variables"
+        self.pivot_max_amount = VariableHolder(
+            VariableMap(
                 self.mode,
                 getter=lambda mode: [0, 0, 1, 1, 1, 2, 0][mode.value],
                 setter=None,
                 name="pivot max count"
             ))
-        # defining an AttributeMap for a list that discards all but the topmost max_amount items
+        # defining an VariableMap for a list that discards all but the topmost max_amount items
 
-        def getter(pos_list: Attribute[list[Vector]], max_amount: Attribute[int]) -> list[Vector]:
+        def getter(pos_list: Variable[list[Vector]], max_amount: Variable[int]) -> list[Vector]:
             if len(pos_list.value) > max_amount.value:
                 pos_list.value = pos_list.value[len(pos_list.value) - max_amount.value:]
             return pos_list.value
 
-        def setter(pos_list: Attribute[list[Vector]], max_amount: Attribute[int], value: list[Vector]):
+        def setter(value: list[Vector], pos_list: Variable[list[Vector]], max_amount: Variable[int]):
             pos_list.value = value
             getter(pos_list, max_amount)
-        self.pivot_positions = AttributeHolder(
-            AttributeMap(
-                Attribute([], name="pivot position list"), self.pivot_max_amount,
+        self.pivot_positions = VariableHolder(
+            VariableMap(
+                Variable([], name="pivot position list"), self.pivot_max_amount,
                 getter=getter,
                 setter=setter,
                 name="pivot positions"
@@ -268,19 +272,19 @@ class Editor:
 def main():
     class A(screenIO.Scene):
         def o_Init(self, updater: screenIO.Updater):
-            self.attributes = {"mpos": AttributeHolder(Attribute(Vector(0, 0), "mouse_position"))}
+            self.variables = {"mpos": VariableHolder(Variable(Vector(0, 0), "mouse_position"))}
             self.gameObjects = GameObjectList()
             self.editor = Editor()
-            self.editor.picker_position.SetAttribute(self.attributes["mpos"].attribute)
+            self.editor.picker_position.SetVariable(self.variables["mpos"].variable)
             pass
 
         def o_Update(self, updater: screenIO.Updater):
             inputs = updater.get_inputs()
             canvas = updater.get_canvas()
             mpos = inputs.get_mouse_position()
-            self.attributes["mpos"].Set(mpos)
+            self.variables["mpos"].Set(mpos)
             if inputs.keyPressed(pygame.K_w):
-                self.gameObjects.Add(Point(Attribute(mpos)))
+                self.gameObjects.Add(Point(Variable(mpos)))
             if inputs.keyDown(pygame.K_s) or inputs.mouseDown(1):
                 self.editor.Do_Select(self.gameObjects.Iterator())
             if inputs.keyDown(pygame.K_d):
