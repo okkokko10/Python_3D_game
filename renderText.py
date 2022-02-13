@@ -160,11 +160,10 @@ class RenderText:
         out = []
         for i in range(len(text)):
             s = self.font.render(text[i], False, color)
-            out.append((s, (0, height)))
-            height += self.height
+            out.append((s, (0, i * self.height)))
             width = max(width, s.get_width())
         surface = pygame.Surface(
-            (width, height), flags=pygame.SRCALPHA)
+            (width, len(text) * self.height), flags=pygame.SRCALPHA)
         surface.blits(out)
         if len(color) == 4:
             # surface.fill((255, 255, 255, color[3]), special_flags=pygame.BLEND_MULT)
@@ -180,217 +179,221 @@ class RenderText:
             return self.RenderLines(Text(text).lineWrap(wrap), color=color)
         return self.RenderLines(Text(text), color=color)
 
+    def Locate(self, pos: tuple[float, float], text: Text = None):
+        "returns row / column"
+        x, y = pos
+        x1, y1 = self.font.size("a")
+        return y // self.height, x // x1
 
-class Chat:
-    def __init__(self):
-        self.text = Text()
-        pass
+
+def old():
+    # class Chat:
+    #     def __init__(self):
+    #         self.text = Text()
+    #         pass
+    #     pass
+
+    # class CommandConsole(TextEditor):  # not implemented
+    #     def __init__(self, commands=None):
+    #         self.text = ['']
+    #         self.selectedLine = 0
+    #         self.selectedIndex = 0
+    #         self.commandBuffer = []
+    #         if commands:
+    #             self.commands = commands
+    #         else:
+    #             self.commands = {}
+
+    #     def Parse(self, store=True):
+    #         return self.ParseLine(self.selectedLine, store)
+
+    #     def ParseLine(self, line, store=True):
+    #         text = self.text[line]
+    #         if len(text) == 0:  # or text[0]!='/':
+    #             return False
+    #         words = text.split()
+    #         # print(words)
+    #         if words[0] in self.commands:
+    #             if words[1].isnumeric():
+    #                 out = words[0], int(words[1])
+    #                 if store:
+    #                     self.commandBuffer.append(out)
+    #                 return out
+
+    #     def TakeCommandBuffer(self):
+    #         a = self.commandBuffer.copy()
+    #         self.commandBuffer.clear()
+    #         return a
+    #     pass
+
+    # class CommandConsoleVisual:  # not implemented
+    #     def __init__(self):
+    #         self.console = CommandConsole()
+    #         self.height = 50
+    #         self.font = pygame.font.Font(None, self.height)
+    #         self.opened = True
+    #         self.RefreshSurface()
+
+    #     def RefreshSurface(self):
+    #         self.surface = pygame.Surface(
+    #             (600, self.height * (len(self.console.text))))
+    #         out = []
+    #         color = (0, 0, 200)
+    #         for i in range(len(self.console.text)):
+    #             out.append((self.font.render(self.console.GetLine(i), False, color), (0, i * self.height)))
+    #         self.surface.blits(out)
+
+    #     def BlitTo(self, destination):
+    #         self.surface.set_alpha(50 + 100 * self.opened)
+    #         destination.blit(self.surface, (0, 0))
+
+    #     def KeydownEvent(self, event):
+    #         key = event.__dict__['key']
+    #         if key == pygame.K_PAUSE:  # pause
+    #             if self.opened:
+    #                 self.Close()
+    #             else:
+    #                 self.Open()
+    #         elif self.opened:
+    #             self.Write(event)
+    #         self.RefreshSurface()
+
+    #     def Open(self):
+    #         self.opened = True
+    #         # self.console.Enter()
+    #         return
+
+    #     def Close(self):
+    #         self.opened = False
+    #         # self.console.Parse()
+    #         return
+
+    #     def IsLocking(self):
+    #         return self.opened
+
+    #     def Write(self, event):
+    #         # print(event)
+    #         letter = event.__dict__['unicode']
+    #         key = event.__dict__['key']
+    #         mod = event.__dict__['mod']
+    #         if key == pygame.K_ESCAPE:
+    #             self.Close()
+    #             return
+    #         if key == pygame.K_BACKSPACE:
+    #             self.console.Backspace()
+    #             return
+    #         if key == pygame.K_RETURN:
+    #             if mod & pygame.KMOD_SHIFT:
+    #                 a = self.console.Parse(True)
+    #             else:
+    #                 self.console.Enter()
+    #             return
+    #         a = {pygame.K_UP: self.console.MoveUp, pygame.K_RIGHT: self.console.MoveRight,
+    #              pygame.K_DOWN: self.console.MoveDown, pygame.K_LEFT: self.console.MoveLeft}
+    #         if key in a:
+    #             a[key]()
+    #         if letter:
+    #             self.console.TypeText(letter)
+    #             # self.text[-1]+=letter
+
+    #     def TakeCommandBuffer(self):
+    #         return self.console.TakeCommandBuffer()
+
+    # class CommandArgument:  # not implemented
+    #     # INT,BOOL,STR,VEC,OPT=range(5)
+    #     def __init__(self, argType, name):
+    #         self.argType = argType
+
+    #     @staticmethod
+    #     def INT(name):
+    #         return CommandArgument(0, name)
+
+    #     @staticmethod
+    #     def BOOL(name):
+    #         return CommandArgument(1, name)
+
+    #     @staticmethod
+    #     def STR(name):
+    #         return CommandArgument(2, name)
+
+    #     @staticmethod
+    #     def VEC(name):
+    #         return CommandArgument(3, name)
+
+    #     @staticmethod
+    #     def OPT(name):
+    #         return CommandArgument(4, name)
+
+    #     @staticmethod
+    #     def AsType(argumentType, argument):
+    #         ca = CommandArgument
+    #         return (ca.AsInt, ca.AsBool, ca.AsStr, ca.AsVec)[argumentType](argument)
+
+    #     @staticmethod
+    #     def AsInt(argument: str):
+    #         try:
+    #             return int(argument)
+    #         except:
+    #             return
+
+    #     @staticmethod
+    #     def AsBool(argument: str):
+    #         if argument in ('true', '1'):
+    #             return True
+    #         elif argument in ('false', '0'):
+    #             return False
+    #         else:
+    #             return
+
+    #     @staticmethod
+    #     def AsStr(argument: str):
+    #         return argument
+
+    #     @staticmethod
+    #     def AsVec(argument: str):
+    #         a = argument.split(',')
+    #         if len(a) == 2:
+    #             try:
+    #                 return int(a[0]), int(a[1])
+    #             except:
+    #                 return
+    #         else:
+    #             return
+
+    #     @staticmethod
+    #     def Parse(command: str, options):
+    #         arguments = command.split()
+    #         path = options
+    #         i = 0
+    #         while arguments[i] in path:
+    #             path = path[arguments[i]]
+    #         return
+
+    # if __name__ == '__main__':
+    #     ca = CommandArgument
+    #     a = {
+    #         'setspeed': ('frequency', ca.INT),
+    #         'setwave': (('position', ca.VEC), ('direction', ca.INT), ('on/off', ca.BOOL)),
+    #         'preset': {
+    #             'copy': (('from', ca.VEC), ('to', ca.VEC), ('name', ca.STR)),
+    #             'paste': (('at', ca.VEC), ('rotated', ca.INT), ('name', ca.STR))
+    #         },
+    #     }
+
+    #     b = {
+    #         ca.OPT('setspeed'): {
+    #             ca.INT('frequency')
+    #         },
+    #         ca.OPT('setwave'): {
+
+    #         },
+    #         ca.OPT('preset'): {
+
+    #         }
+    #     }
+
+    #     ca.OPT(
+    #         'setspeed', ca.INT('frequency', ca.RUN())
+
+    #     )
     pass
-
-
-class CommandConsole(TextEditor):  # not implemented
-    def __init__(self, commands=None):
-        self.text = ['']
-        self.selectedLine = 0
-        self.selectedIndex = 0
-        self.commandBuffer = []
-        if commands:
-            self.commands = commands
-        else:
-            self.commands = {}
-
-    def Parse(self, store=True):
-        return self.ParseLine(self.selectedLine, store)
-
-    def ParseLine(self, line, store=True):
-        text = self.text[line]
-        if len(text) == 0:  # or text[0]!='/':
-            return False
-        words = text.split()
-        # print(words)
-        if words[0] in self.commands:
-            if words[1].isnumeric():
-                out = words[0], int(words[1])
-                if store:
-                    self.commandBuffer.append(out)
-                return out
-
-    def TakeCommandBuffer(self):
-        a = self.commandBuffer.copy()
-        self.commandBuffer.clear()
-        return a
-    pass
-
-
-class CommandConsoleVisual:  # not implemented
-    def __init__(self):
-        self.console = CommandConsole()
-        self.height = 50
-        self.font = pygame.font.Font(None, self.height)
-        self.opened = True
-        self.RefreshSurface()
-
-    def RefreshSurface(self):
-        self.surface = pygame.Surface(
-            (600, self.height * (len(self.console.text))))
-        out = []
-        color = (0, 0, 200)
-        for i in range(len(self.console.text)):
-            out.append((self.font.render(self.console.GetLine(i), False, color), (0, i * self.height)))
-        self.surface.blits(out)
-
-    def BlitTo(self, destination):
-        self.surface.set_alpha(50 + 100 * self.opened)
-        destination.blit(self.surface, (0, 0))
-
-    def KeydownEvent(self, event):
-        key = event.__dict__['key']
-        if key == pygame.K_PAUSE:  # pause
-            if self.opened:
-                self.Close()
-            else:
-                self.Open()
-        elif self.opened:
-            self.Write(event)
-        self.RefreshSurface()
-
-    def Open(self):
-        self.opened = True
-        # self.console.Enter()
-        return
-
-    def Close(self):
-        self.opened = False
-        # self.console.Parse()
-        return
-
-    def IsLocking(self):
-        return self.opened
-
-    def Write(self, event):
-        # print(event)
-        letter = event.__dict__['unicode']
-        key = event.__dict__['key']
-        mod = event.__dict__['mod']
-        if key == pygame.K_ESCAPE:
-            self.Close()
-            return
-        if key == pygame.K_BACKSPACE:
-            self.console.Backspace()
-            return
-        if key == pygame.K_RETURN:
-            if mod & pygame.KMOD_SHIFT:
-                a = self.console.Parse(True)
-            else:
-                self.console.Enter()
-            return
-        a = {pygame.K_UP: self.console.MoveUp, pygame.K_RIGHT: self.console.MoveRight,
-             pygame.K_DOWN: self.console.MoveDown, pygame.K_LEFT: self.console.MoveLeft}
-        if key in a:
-            a[key]()
-        if letter:
-            self.console.TypeText(letter)
-            # self.text[-1]+=letter
-
-    def TakeCommandBuffer(self):
-        return self.console.TakeCommandBuffer()
-
-
-class CommandArgument:  # not implemented
-    # INT,BOOL,STR,VEC,OPT=range(5)
-    def __init__(self, argType, name):
-        self.argType = argType
-
-    @staticmethod
-    def INT(name):
-        return CommandArgument(0, name)
-
-    @staticmethod
-    def BOOL(name):
-        return CommandArgument(1, name)
-
-    @staticmethod
-    def STR(name):
-        return CommandArgument(2, name)
-
-    @staticmethod
-    def VEC(name):
-        return CommandArgument(3, name)
-
-    @staticmethod
-    def OPT(name):
-        return CommandArgument(4, name)
-
-    @staticmethod
-    def AsType(argumentType, argument):
-        ca = CommandArgument
-        return (ca.AsInt, ca.AsBool, ca.AsStr, ca.AsVec)[argumentType](argument)
-
-    @staticmethod
-    def AsInt(argument: str):
-        try:
-            return int(argument)
-        except:
-            return
-
-    @staticmethod
-    def AsBool(argument: str):
-        if argument in ('true', '1'):
-            return True
-        elif argument in ('false', '0'):
-            return False
-        else:
-            return
-
-    @staticmethod
-    def AsStr(argument: str):
-        return argument
-
-    @staticmethod
-    def AsVec(argument: str):
-        a = argument.split(',')
-        if len(a) == 2:
-            try:
-                return int(a[0]), int(a[1])
-            except:
-                return
-        else:
-            return
-
-    @staticmethod
-    def Parse(command: str, options):
-        arguments = command.split()
-        path = options
-        i = 0
-        while arguments[i] in path:
-            path = path[arguments[i]]
-        return
-
-
-if __name__ == '__main__':
-    ca = CommandArgument
-    a = {
-        'setspeed': ('frequency', ca.INT),
-        'setwave': (('position', ca.VEC), ('direction', ca.INT), ('on/off', ca.BOOL)),
-        'preset': {
-            'copy': (('from', ca.VEC), ('to', ca.VEC), ('name', ca.STR)),
-            'paste': (('at', ca.VEC), ('rotated', ca.INT), ('name', ca.STR))
-        },
-    }
-
-    b = {
-        ca.OPT('setspeed'): {
-            ca.INT('frequency')
-        },
-        ca.OPT('setwave'): {
-
-        },
-        ca.OPT('preset'): {
-
-        }
-    }
-
-    ca.OPT(
-        'setspeed', ca.INT('frequency', ca.RUN())
-
-    )
