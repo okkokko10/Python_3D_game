@@ -156,6 +156,10 @@ class Vector:
         "self / other"
         self.complexMul(other.complexConjugate()) / other.lengthSq()
 
+    def IsInside(self, start: 'Vector', stop: 'Vector'):
+        "if this vector is inside the rectangle with start as top-left and stop as bottom-right. stop is outside the rectangle"
+        return start.x <= self.x < stop.x and start.y <= self.y < stop.y
+
 
 class IntVec(Vector):
     def __init__(self, x=0, y=0):

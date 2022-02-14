@@ -80,6 +80,10 @@ class Text(list[str]):
     def max_line_width(self):
         return max(map(len, self))
 
+    def height(self):
+        "amount of lines"
+        return len(self)
+
 
 class TextEditor:
     def __init__(self, text: 'list[str]|str|Text' = ''):
@@ -217,13 +221,13 @@ class RenderText:
             return self.RenderLines(Text(text).lineWrap(wrap), color=color)
         return self.RenderLines(Text(text), color=color)
 
-    def Locate(self, pos: tuple[float, float], text: Text = None):
-        "takes in coordinate, returns column/line"
+    def Locate(self, pos: Vector, text: Text = None):
+        "takes in coordinate, returns column/line (x,y)"
         x, y = pos
-        return x // self.width, y // self.height
+        return int(x // self.width), int(y // self.height)
 
     def Position(self, column: int, line: int, text: Text = None):
-        "takes in column / line, returns top-left corner of the letter"
+        "takes in column / line (x,y), returns top-left corner of the letter"
         return Vector(self.width * column, self.height * line)
 
     def letter_size(self):
