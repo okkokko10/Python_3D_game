@@ -1,4 +1,5 @@
 # imported from old work at C:\Users\Okko Heiniö\Desktop\Python\Refraction\WaveCircuit\commandConsole.py
+import itertools
 import math
 
 
@@ -76,6 +77,9 @@ class Text(list[str]):
 
     def as_string(self): return '\n'.join(self)
 
+    def max_line_width(self):
+        return max(map(len, self))
+
 
 class TextEditor:
     def __init__(self, text: 'list[str]|str|Text' = ''):
@@ -143,6 +147,39 @@ class TextEditor:
 
 import pygame
 pygame.font.init()
+from vector import Vector
+
+
+class Effect:
+    def __init__(self, color):
+        self.color = color
+    pass
+
+
+class TextEffects:
+    def __init__(self, lines: list[list[tuple[int, Effect]]] = None) -> None:
+        self.lines = lines or []
+        self.default_effect = Effect(color=(255, 255, 255))
+        """line = self.lines[i] contains information on the i'th row.\n
+        line[j] contains the line's j'th change in the effects, as a tuple of x, ef.\n
+        x is the column the change starts at, and ef is the effect itself.
+        Effects carry on to the next line."""
+
+    def Prepare(self, text: Text):
+        """returns a list, which contains a list for each line of the text.
+        these lists contain tuples of string, effect, start, stop.
+        """
+        effect = self.default_effect
+        out: list[list[tuple[str, Effect, int, int]]] = []
+        for text_line, effect_line in zip(text, itertools.chain(self.lines, itertools.repeat([]))):
+            out.append([])
+            x0 = 0
+            for x, ef in effect_line:
+                out[-1].append((text_line[x0:x], effect, x0, x))
+                effect = ef
+                x0 = x
+            out[-1].append((text_line[x0:], effect, x0, len(text_line)))
+        return out
 
 
 class RenderText:
@@ -150,6 +187,7 @@ class RenderText:
         self.height = height
         self.font = pygame.font.SysFont('consolas', self.height)
         self.color = color
+        self.width, _ = self.font.size("a")
 
     def RenderLines(self, text: Text, color=None):
         if color is None:
@@ -180,10 +218,31 @@ class RenderText:
         return self.RenderLines(Text(text), color=color)
 
     def Locate(self, pos: tuple[float, float], text: Text = None):
-        "returns row / column"
+        "takes in coordinate, returns column/line"
         x, y = pos
-        x1, y1 = self.font.size("a")
-        return y // self.height, x // x1
+        return x // self.width, y // self.height
+
+    def Position(self, column: int, line: int, text: Text = None):
+        "takes in column / line, returns top-left corner of the letter"
+        return Vector(self.width * column, self.height * line)
+
+    def letter_size(self):
+        return Vector(self.width, self.height)
+
+    def RenderEffects(self, prepared_text: list[list[tuple[str, Effect, int, int]]]):
+        blits: list[tuple[pygame.Surface, tuple[int, int]]] = []
+        height = 0
+        max_width = 0
+        for line in prepared_text:
+            for part in line:
+                s = self.font.render(part[0], False, part[1].color)
+                blits.append((s, (part[2] * self.width, height)))
+            if line:
+                max_width = max(max_width, line[-1][3] * self.width)
+            height += self.height
+        surface = pygame.Surface((max_width, height), flags=pygame.SRCALPHA)
+        surface.blits(blits)
+        return surface
 
 
 def old():
