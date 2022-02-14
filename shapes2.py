@@ -114,6 +114,9 @@ class Point(GameObject):
         return [self.position]
 
 
+import menus
+
+
 class Editor:
     def __init__(self):
         self.selected: list[GameObject] = []
@@ -131,7 +134,7 @@ class Editor:
                 setter=None,
                 name="pivot max count"
             ))
-        # defining an VariableMap for a list that discards all but the topmost max_amount items
+        # defining a VariableMap for a list that discards all but the topmost max_amount items
 
         def getter(pos_list: Variable[list[Vector]], max_amount: Variable[int]) -> list[Vector]:
             if len(pos_list.value) > max_amount.value:
@@ -151,6 +154,24 @@ class Editor:
 
         self.renderText = renderText.RenderText(50, self.color)
 
+        self.menu = menus.ContextMenu(
+            [
+                "set to 3",
+                "open submenu"
+            ],
+            {0: lambda: self.mode.Set(3)},
+            {1: menus.ContextMenu(
+                [
+                    "nothing",
+                    "set to 4"
+                ],
+                {1: lambda: self.mode.Set(4)},
+                {},
+                10
+            )},
+            15
+        )
+
     def Select(self, *selected: GameObject, hold=False):
         if hold:
             self.selected.extend(selected)
@@ -169,17 +190,32 @@ class Editor:
         for p in self.pivot_positions.value:
             canvas.Circle(p, 3, self.color.value, 1)
             pass
+        self.menu.Draw(canvas)
 
     def Do_Select(self, choices: list[GameObject]):
         closest = min(choices, key=lambda g: g.DistanceSq(self.picker_position), default=None)
         if closest is not None and closest.DistanceSq(self.picker_position) <= self.max_pick_range.value**2:
             self.Select(closest, hold=self.hold.Get())
 
+    def Do_Left_Click(self, choices: list[GameObject]):
+        if not self.menu.ClickAt(self.picker_position.Get()):
+            if self.mode.value == 0:
+                self.Do_Select(choices)
+
+    def Do_Right_Click(self, choices: list[GameObject]):
+        self.menu.Flip_openclose(self.picker_position.Get())
+
     def Do_CreatePivot(self):
         self.pivot_positions.value += [self.picker_position.value]
 
     def Do_ChangeMode(self, amount: int):
         self.mode.value = (self.mode.value + amount) % 7
+
+    def Do_Update(self):
+        pass
+
+    def Do_Left_Hold(self, choices: list[GameObject]):
+        pass
 
 
 def main():
@@ -196,16 +232,20 @@ def main():
             canvas = updater.get_canvas()
             mpos = inputs.get_mouse_position()
             self.variables["mpos"].Set(mpos)
+            self.editor.hold.Set(inputs.keyPressed(pygame.K_LSHIFT))
             if inputs.keyPressed(pygame.K_w):
                 self.gameObjects.Add(Point(Variable(mpos)))
             if inputs.keyDown(pygame.K_s) or inputs.mouseDown(1):
-                self.editor.Do_Select(self.gameObjects.Iterator())
+                self.editor.Do_Left_Click(self.gameObjects.Iterator())
+            if inputs.keyDown(pygame.K_s) or inputs.mouseDown(3):
+                self.editor.Do_Right_Click(self.gameObjects.Iterator())
             if inputs.keyDown(pygame.K_d):
                 self.editor.Do_CreatePivot()
             if inputs.mouseDown(4):
                 self.editor.Do_ChangeMode(1)
             if inputs.mouseDown(5):
                 self.editor.Do_ChangeMode(-1)
+            self.editor.Do_Update()
             canvas.Fill((100, 100, 255))
             self.gameObjects.Draw(canvas)
             self.editor.Draw(canvas)

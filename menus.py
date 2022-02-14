@@ -33,29 +33,29 @@ class TextMenu(Menu):
 class ContextMenu(TextMenu):
     submenus: dict[int, 'ContextMenu']
 
-    def __init__(self, text: list[str], commands: dict[int, Callable[[], bool]], width: int, render_text: renderText.RenderText = None):
+    def __init__(self, text: list[str], commands: dict[int, Callable[[], bool]], submenus: dict[int, 'ContextMenu'], width: int = None, render_text: renderText.RenderText = None):
         self.renderText = render_text or renderText.RenderText(25)
         self.open = False
         self.position = Vector(0, 0)
         self.text = text
         self.commands = commands
-        self.submenus = {}
+        self.submenus = submenus
         self.clicked: tuple = None
-        self.width = width * self.renderText.width
-        self.line_amount = self.text.height()
+        self.width = (width or max(map(len, text))) * self.renderText.width
+        self.line_amount = len(self.text)
         self.height = self.line_amount * self.renderText.height
         self.size = Vector(self.width, self.height)
 
     def ClickPath(self, path: list[int]):
         if len(path) > 1:
-            return self.submenus[path[0]].ClickLine(path[1:])
+            return self.submenus[path[0]].ClickPath(path[1:])
         else:
             return self.ClickLine(path[0])
 
     def ClickLine(self, line: int):
         "returning False closes the menu"
         if line in self.submenus:
-            self.submenus[line].Flip_openclose()
+            self.submenus[line].Flip_openclose(self.Submenu_Pos(line))
             return True
         if line in self.commands:
             self.commands[line]()
@@ -76,8 +76,10 @@ class ContextMenu(TextMenu):
     def Create(self, pos: Vector):
         self.position = pos
 
-    def Open(self):
+    def Open(self, pos: Vector | None):
         self.open = True
+        if pos is not None:
+            self.position = pos
 
     def Close(self):
         self.open = False
@@ -90,12 +92,14 @@ class ContextMenu(TextMenu):
         return None
 
     def Create_Submenu(self, line: int, menu: 'ContextMenu'):
-        pos = Vector(line * self.renderText.height, self.width)
         self.submenus[line] = menu
-        menu.Create(pos)
+        menu.Create(self.Submenu_Pos(line))
 
     def Open_Submenu(self, line: int):
-        self.submenus[line].Open()
+        self.submenus[line].Open(self.Submenu_Pos(line))
+
+    def Submenu_Pos(self, line: int):
+        return self.position + Vector(self.width, line * self.renderText.height)
 
     def Close_Submenu(self, line: int):
         self.submenus[line].Close()
@@ -130,15 +134,18 @@ class ContextMenu(TextMenu):
                 return None
 
     def ClickAt(self, position: Vector):
+        "tries to click the menu. returns True if the menu was clicked"
         loc = self.Locate(position)
         if loc:
             if not self.ClickPath(loc):
                 self.Close()
+            return True
         else:
             self.Close()
+            return False
 
-    def Flip_openclose(self):
+    def Flip_openclose(self, pos: Vector = None):
         if self.open:
             self.Close()
         else:
-            self.Open()
+            self.Open(pos)
