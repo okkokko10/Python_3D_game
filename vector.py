@@ -160,6 +160,12 @@ class Vector:
         "if this vector is inside the rectangle with start as top-left and stop as bottom-right. stop is outside the rectangle"
         return start.x <= self.x < stop.x and start.y <= self.y < stop.y
 
+    def distanceSq(self, other: 'Vector'):
+        return (self - other).lengthSq()
+
+    def distance(self, other: 'Vector'):
+        return math.sqrt(self.distanceSq(other))
+
 
 class IntVec(Vector):
     def __init__(self, x=0, y=0):

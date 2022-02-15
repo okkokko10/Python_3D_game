@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Callable
 import pygame
 import pygame.gfxdraw
@@ -271,32 +272,32 @@ class Inputs:
     #       make it so you can click or press a key multiple times per frame, and that they have a mouse position associated with them.
     #       An option for staggering inputs that have been pressed multiple times in one frame. Useful for the mouse wheel
     def __init__(self):
-        self._ups = set()
-        self._downs = set()
+        self._ups = Counter()
+        self._downs = Counter()
         self._pressed = {}
         self.mouse_movement = Vector(0, 0)
-        self._mouse_ups = set()
-        self._mouse_downs = set()
+        self._mouse_ups = Counter()
+        self._mouse_downs = Counter()
         self._mouse_pressed = {}
         self._mouse_path: list[Vector] = [Vector(0, 0)]  # TODO: make it possible to see whether mouse buttons are pressed at a point in the path
         pass
 
     def _set_keyDown(self, key):
-        self._downs.add(key)
+        self._downs.update((key,))
         self._pressed[key] = 0
         return
 
     def _set_keyUp(self, key):
-        self._ups.add(key)
+        self._ups.update((key,))
         return
 
     def _set_mouseDown(self, button):
-        self._mouse_downs.add(button)
+        self._mouse_downs.update((button,))
         self._mouse_pressed[button] = 0
         return
 
     def _set_mouseUp(self, button):
-        self._mouse_ups.add(button)
+        self._mouse_ups.update((button,))
         return
 
     def UpdateInputs(self, events, deltaTime):
@@ -368,6 +369,9 @@ class Inputs:
     def WASD(self):
         return vec(self.keyPressed(pygame.K_d) - self.keyPressed(pygame.K_a),
                    self.keyPressed(pygame.K_w) - self.keyPressed(pygame.K_s))
+
+    def get_mousewheel(self):
+        return self._mouse_downs[4] - self._mouse_downs[5]
 
 
 class Scene:

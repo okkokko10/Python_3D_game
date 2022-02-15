@@ -1,3 +1,5 @@
+from email.policy import default
+import itertools
 from variables import *
 import sympy
 import screenIO
@@ -14,19 +16,24 @@ class Color(tuple):
     pass
 
 
+_VT = TypeVar("_VT")
+
+Position = Vector
+
+
 class GameObject:
     "editable by Editor"
 
     def Draw(self, canvas: screenIO.Canvas):
         pass
 
-    def Glow(self, canvas: screenIO.Canvas, color: Variable[Color]):
+    def Glow(self, canvas: screenIO.Canvas, color: Color):
         pass
 
-    def DistanceSq(self, pos: Variable[Vector]) -> float:
+    def DistanceSq(self, pos: Position) -> float:
         raise NotImplementedError()
 
-    def get_editable(self) -> list[VariableHolder]:
+    def get_editable_positions(self) -> list[VariableHolder[Position]]:
         return []
 
 
@@ -47,6 +54,15 @@ class GameObjectList:
     def Iterator(self):
         return self.gameObjects
 
+    def get_editable_positions(self):
+        return (itertools.chain(*(go.get_editable_positions() for go in self.gameObjects)))
+
+    def get_closest_editable_position(self, position: Position, withinSq: float = None) -> tuple[VariableHolder[Position], float] | None:
+        "returns a VariableHolder containing a position, and the square distance to it"
+        var, disSq = min(((pos_var, position.distanceSq(pos_var.Get())) for pos_var in self.get_editable_positions()), key=lambda x: x[1], default=(None, None))
+
+        return (None, None) if var is None or withinSq is not None and withinSq < disSq else (var, disSq)
+
 
 class Shape:
     def Draw(self, canvas: screenIO.Canvas):
@@ -59,8 +75,8 @@ class Shape:
 
 class Circle(Shape):
     def __init__(self, center: Variable[Vector], edge: Variable[Vector]):
-        self.center = VariableHolder(center, "center")
-        self.edge = VariableHolder(edge, "edge")
+        self.center = VariableHolder(center, "center", self)
+        self.edge = VariableHolder(edge, "edge", self)
 
     @property
     def radiusSq(self):
@@ -81,8 +97,8 @@ class Circle(Shape):
 
 class Line(Shape):
     def __init__(self, a: Variable[Vector], b: Variable[Vector]):
-        self.a = VariableHolder(a)
-        self.b = VariableHolder(b)
+        self.a = VariableHolder(a, parent=self)
+        self.b = VariableHolder(b, parent=self)
 
     def Draw(self, canvas: screenIO.Canvas):
         color = (255, 255, 255)
@@ -97,32 +113,57 @@ class Line(Shape):
 
 
 class Point(GameObject):
-    def __init__(self, pos: Variable[Vector]):
-        self.position = VariableHolder(pos)
-        self.color = VariableHolder(Variable(Color(255, 0, 100)))
+    def __init__(self, pos: Variable[Position]):
+        self.position = VariableHolder(pos, parent=self)
+        self.color = VariableHolder(Variable(Color(255, 0, 100)), parent=self)
 
     def Draw(self, canvas: screenIO.Canvas):
         canvas.Circle(self.position.Get(), 2, self.color.Get())
 
-    def Glow(self, canvas: screenIO.Canvas, color: Variable[Color]):
-        canvas.Circle(self.position.Get(), 3, color.Get(), 1)
+    def Glow(self, canvas: screenIO.Canvas, color: Color):
+        canvas.Circle(self.position.Get(), 3, color, 1)
 
-    def DistanceSq(self, pos: Variable[Vector]) -> float:
-        return (self.position.Get() - pos.Get()).lengthSq()
+    def DistanceSq(self, pos: Position) -> float:
+        return self.position.Get().distanceSq(pos)
 
-    def get_editable(self) -> list[VariableHolder]:
+    def get_editable_positions(self):
         return [self.position]
 
 
 import menus
 
 
+class EditorAction:
+    def __init__(self, editor: 'Editor', variables: set[VariableHolder[Position]]):
+        self.editor = editor
+        self.start_editor_pos = self.editor.picker_position.Get()
+        self.start_values = dict((var, var.Get()) for var in variables)
+
+    def Update(self):
+        editor_pos = self.editor.picker_position.Get()
+        for var, start_pos in self.start_values.items():
+            self.UpdateVar(var, start_pos, self.start_editor_pos, editor_pos)
+
+    def UpdateVar(self, var: VariableHolder[_VT], start_value: _VT, editor_start: Position, editor_stop: Position):
+        pass
+
+    pass
+
+
+class EditorAction_move(EditorAction):
+    def UpdateVar(self, var: VariableHolder[_VT], start_value: _VT, editor_start: Position, editor_stop: Position):
+        var.Set(start_value + editor_stop - editor_start)
+    pass
+
+
 class Editor:
-    def __init__(self):
-        self.selected: list[GameObject] = []
+    def __init__(self, gameObjectList: GameObjectList):
+        self.game_object_list = gameObjectList
+        self.selected_gameObjects: set[GameObject] = set()
+        self.selected_posVars: set[VariableHolder[Position]] = set()
         self.hold = VariableHolder(Variable(False))
-        self.color = VariableHolder(Variable((100, 255, 100)))
-        self.picker_position = VariableHolder(Variable(Vector(0, 0)))
+        self.color = VariableHolder(Variable(Color(100, 255, 100)))
+        self.picker_position = VariableHolder(Variable(Position(0, 0)))
         self.max_pick_range = VariableHolder(Variable(50))
         self.mode = VariableHolder(Variable(0))
         # TODO: create, destroy,
@@ -136,12 +177,12 @@ class Editor:
             ))
         # defining a VariableMap for a list that discards all but the topmost max_amount items
 
-        def getter(pos_list: Variable[list[Vector]], max_amount: Variable[int]) -> list[Vector]:
+        def getter(pos_list: Variable[list[Position]], max_amount: Variable[int]) -> list[Position]:
             if len(pos_list.value) > max_amount.value:
                 pos_list.value = pos_list.value[len(pos_list.value) - max_amount.value:]
             return pos_list.value
 
-        def setter(value: list[Vector], pos_list: Variable[list[Vector]], max_amount: Variable[int]):
+        def setter(value: list[Position], pos_list: Variable[list[Position]], max_amount: Variable[int]):
             pos_list.value = value
             getter(pos_list, max_amount)
         self.pivot_positions = VariableHolder(
@@ -152,7 +193,7 @@ class Editor:
                 name="pivot positions"
             ))
 
-        self.renderText = renderText.RenderText(50, self.color)
+        self.renderText = renderText.RenderText(25, self.color.Get())
 
         self.menu = menus.ContextMenu(
             [
@@ -172,19 +213,28 @@ class Editor:
             15
         )
 
+        self.action = None
+
     def Select(self, *selected: GameObject, hold=False):
         if hold:
-            self.selected.extend(selected)
+            self.selected_gameObjects.update(selected)
         else:
-            self.selected = list(selected)
+            self.selected_gameObjects = set(selected)
 
-    # def Set_position(self, pos: Vector):
-    #     self.position.Set(pos)
+    def Select_posVar(self, *selected: VariableHolder[Position], hold=False):
+        if hold:
+            self.selected_posVars.update(selected)
+        else:
+            self.selected_posVars = set(selected)
+        pass
 
     def Draw(self, canvas: screenIO.Canvas):
         canvas.Circle(self.picker_position.value, self.max_pick_range.value, self.color.value, 1)
-        for s in self.selected:
-            s.Glow(canvas, self.color)
+        for s in self.selected_gameObjects:
+            s.Glow(canvas, self.color.Get())
+        for s in self.selected_posVars:
+            canvas.Circle(s.Get(), 5, self.color.value, 1)
+
         text = self.renderText.RenderLines(renderText.Text(f"mode: {self.mode.value}"), self.color.value)
         canvas.Blit(text, self.picker_position.value)
         for p in self.pivot_positions.value:
@@ -192,30 +242,54 @@ class Editor:
             pass
         self.menu.Draw(canvas)
 
-    def Do_Select(self, choices: list[GameObject]):
-        closest = min(choices, key=lambda g: g.DistanceSq(self.picker_position), default=None)
-        if closest is not None and closest.DistanceSq(self.picker_position) <= self.max_pick_range.value**2:
-            self.Select(closest, hold=self.hold.Get())
+    def closest_posVar(self):
+        closest, disSq = self.game_object_list.get_closest_editable_position(self.picker_position.Get(), withinSq=self.max_pick_range.Get()**2)
+        return closest
 
-    def Do_Left_Click(self, choices: list[GameObject]):
-        if not self.menu.ClickAt(self.picker_position.Get()):
-            if self.mode.value == 0:
-                self.Do_Select(choices)
+    def Do_Select_closest_posVar(self):
+        closest = self.closest_posVar()
+        if closest is not None:
+            self.Select_posVar(closest, hold=self.hold.Get())
+        else:
+            self.Select_posVar(hold=self.hold.Get())
 
-    def Do_Right_Click(self, choices: list[GameObject]):
+    def Do_Left_Click(self):
+        if self.action:
+            return
+        if self.menu.ClickAt(self.picker_position.Get()):
+            return
+        match self.mode.value:
+            case 0:
+                self.Do_Select_closest_posVar()
+            case 1:
+                self.action = EditorAction_move(self, self.selected_posVars)
+
+    def Do_Right_Click(self):
+        if self.action:
+            return
         self.menu.Flip_openclose(self.picker_position.Get())
 
     def Do_CreatePivot(self):
+        if self.action:
+            return
         self.pivot_positions.value += [self.picker_position.value]
 
-    def Do_ChangeMode(self, amount: int):
+    def Do_Mousewheel(self, amount: int):
+        if self.action:
+            return
         self.mode.value = (self.mode.value + amount) % 7
 
     def Do_Update(self):
+        if self.action:
+            self.action.Update()
         pass
 
-    def Do_Left_Hold(self, choices: list[GameObject]):
+    def Do_Left_Hold(self):
         pass
+
+    def Do_Left_Up(self):
+        if self.action:
+            self.action = None
 
 
 def main():
@@ -223,7 +297,7 @@ def main():
         def o_Init(self, updater: screenIO.Updater):
             self.variables = {"mpos": VariableHolder(Variable(Vector(0, 0), "mouse_position"))}
             self.gameObjects = GameObjectList()
-            self.editor = Editor()
+            self.editor = Editor(self.gameObjects)
             self.editor.picker_position.SetVariable(self.variables["mpos"].variable)
             pass
 
@@ -236,15 +310,14 @@ def main():
             if inputs.keyPressed(pygame.K_w):
                 self.gameObjects.Add(Point(Variable(mpos)))
             if inputs.keyDown(pygame.K_s) or inputs.mouseDown(1):
-                self.editor.Do_Left_Click(self.gameObjects.Iterator())
+                self.editor.Do_Left_Click()
             if inputs.keyDown(pygame.K_s) or inputs.mouseDown(3):
-                self.editor.Do_Right_Click(self.gameObjects.Iterator())
+                self.editor.Do_Right_Click()
             if inputs.keyDown(pygame.K_d):
                 self.editor.Do_CreatePivot()
-            if inputs.mouseDown(4):
-                self.editor.Do_ChangeMode(1)
-            if inputs.mouseDown(5):
-                self.editor.Do_ChangeMode(-1)
+            if inputs.mouseUp(1):
+                self.editor.Do_Left_Up()
+            self.editor.Do_Mousewheel(inputs.get_mousewheel())
             self.editor.Do_Update()
             canvas.Fill((100, 100, 255))
             self.gameObjects.Draw(canvas)

@@ -46,8 +46,9 @@ class VariableMap(Variable[_VT], Generic[_VT]):
 
 
 class VariableHolder(Variable[_VT], Generic[_VT]):
-    def __init__(self, variable: Variable[_VT] = None, name=""):
+    def __init__(self, variable: Variable[_VT] = None, name="", parent=None):
         self.variable = variable
+        self.parent = parent
 
     def SetVariable(self, variable: Variable[_VT]):
         if self.variable is not None:
@@ -67,3 +68,7 @@ class VariableHolder(Variable[_VT], Generic[_VT]):
     @value.setter
     def value(self, value: _VT):
         self.Set(value)
+
+    def Deattach(self):
+        "deattaches the held variable. The new held variable is a new variable that has the same value as the old one had when deattaching"
+        self.SetVariable(Variable(self.Get()))
