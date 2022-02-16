@@ -266,11 +266,111 @@ class CanvasZoom(Canvas):
     # def convertList(self, poslist):
     #     return [pos.f for pos in poslist]
 
+# TODO: a class for specific inputs up and down, that can do or and and, that can be fed to Inputs instead of pygame.K_{key}
+# make it so down and up always correspond with the start and end of pressed
+
+
+class Inp:
+    def __init__(self, name: str, *, _key: int = None):
+        """name is either a valid input to pygame.key.key_code()
+        or a string with two words, the first being mouse, and the second being one of these:
+            left, middle, right, up, down, side lower, side upper
+        or a number corresponding to them.
+
+        # inp>inputs tells if inp is down
+        # inp<inputs tells if inp is up
+        # inp==inputs tells if inp is pressed
+        inp|inp combines two inps
+        """
+        name = name.lower()
+        self.name = name
+        mousewords = [None, "left", "middle", "right", "up", "down", "side lower", "side upper"]
+        m = name.split(maxsplit=1)
+        if m[0] in {"mouse"}:
+            self.is_mouse = True
+            self.key = mousewords.index(m[1])
+        else:
+            self.is_mouse = False
+            self.key = _key or pygame.key.key_code(name)
+
+    def fits(self, inputs: 'Inputs', press: int) -> bool:
+        """
+        match press: 
+            case 0: pressed
+            case 1: down
+            case 2: up
+        """
+        match press:
+            case 0:
+                if self.is_mouse:
+                    return inputs.mousePressed(self.key)
+                else:
+                    return inputs.keyPressed(self.key)
+            case 1:
+                if self.is_mouse:
+                    return inputs.mouseDown(self.key)
+                else:
+                    return inputs.keyDown(self.key)
+            case 2:
+                if self.is_mouse:
+                    return inputs.mouseUp(self.key)
+                else:
+                    return inputs.keyUp(self.key)
+
+    def __or__(self, other: 'Inp'):
+        if isinstance(other, Inp):
+            return InpOr(self, other)
+
+    # def __mul__(self, inputs: 'Inputs'):
+    #     if isinstance(inputs, Inputs):
+    #         return self.fits(inputs, 0)
+
+    # def __add__(self, inputs: 'Inputs'):
+    #     if isinstance(inputs, Inputs):
+    #         return self.fits(inputs, 1)
+
+    # def __sub__(self, inputs: 'Inputs'):
+    #     if isinstance(inputs, Inputs):
+    #         return self.fits(inputs, 2)
+
+
+class InpOr(Inp):
+    def __init__(self, *inps: Inp):
+        self.inps = inps
+
+    def states(self, inputs: 'Inputs', press: int):
+        return [i for i in self.inps if i.fits(inputs, press)]
+
+    def fits(self, inputs: 'Inputs', press: int) -> bool:
+        match press:
+            case 0:
+                return bool(self.states(inputs, 0))
+            case 1:
+                # if there are inps that are pressed but not down, that means they were already pressed
+                a = self.states(inputs, 1)
+                return bool(a and self.states(inputs, 0) == a)
+            case 2:
+                a = self.states(inputs, 2)
+                return bool(a and self.states(inputs, 0) == a)
+
+
+# class InpInverse(Inp):
+#     def __init__(self, inp: Inp):
+#         self.inp = inp
+
+#     def fits(self, inputs: 'Inputs'):
+#         return not self.inp.fits(inputs)
+
 
 class Inputs:
+    """ up and down are true right away. 
+    pressed is true on the frames up or down is true, 
+    and between, but not after or before.
+    up and down can be both true at the same time, if a key is tapped quickly enough"""
     # TODO: make it so every mouse movement event is recorded to create a path, not just the last one of the frame.
     #       make it so you can click or press a key multiple times per frame, and that they have a mouse position associated with them.
     #       An option for staggering inputs that have been pressed multiple times in one frame. Useful for the mouse wheel
+
     def __init__(self):
         self._ups = Counter()
         self._downs = Counter()
@@ -372,6 +472,18 @@ class Inputs:
 
     def get_mousewheel(self):
         return self._mouse_downs[4] - self._mouse_downs[5]
+
+    def from_names(self, names: tuple[str], press: int):
+        return InpOr(*(Inp(n) for n in names)).fits(self, press)
+
+    def Pressed(self, *names: str):
+        return self.from_names(names, 0)
+
+    def Down(self, *names: str):
+        return self.from_names(names, 1)
+
+    def Up(self, *names: str):
+        return self.from_names(names, 2)
 
 
 class Scene:

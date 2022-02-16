@@ -321,17 +321,19 @@ def main():
             canvas = updater.get_canvas()
             mpos = inputs.get_mouse_position()
             self.variables["mpos"].Set(mpos)
-            self.editor.hold.Set(inputs.keyPressed(pygame.K_LSHIFT) or inputs.keyPressed(pygame.K_RSHIFT))
-            if inputs.keyPressed(pygame.K_w) or inputs.keyPressed(pygame.K_UP):
+            # self.editor.hold.Set(inputs.keyPressed(pygame.K_LSHIFT) or inputs.keyPressed(pygame.K_RSHIFT))
+            self.editor.hold.Set(inputs.Pressed("left shift", "right shift"))
+
+            if inputs.Pressed("up", "w"):
                 self.gameObjects.Add(Point(Variable(mpos)))
-            if inputs.keyDown(pygame.K_LEFT) or inputs.mouseDown(1):
+            if inputs.Down("left", "mouse left"):
                 self.editor.Do_Left_Click()
-            if inputs.keyDown(pygame.K_RIGHT) or inputs.mouseDown(3):
-                self.editor.Do_Right_Click()
-            if inputs.keyDown(pygame.K_d) or inputs.keyDown(pygame.K_DOWN):
-                self.editor.Do_CreatePivot()
-            if inputs.mouseUp(1) or inputs.keyUp(pygame.K_LEFT):
+            if inputs.Up("left", "mouse left"):
                 self.editor.Do_Left_Up()
+            if inputs.Down("right", "mouse right"):
+                self.editor.Do_Right_Click()
+            if inputs.Down("d", "down"):
+                self.editor.Do_CreatePivot()
             self.editor.Do_Mousewheel(inputs.get_mousewheel())
             self.editor.Do_Update()
             canvas.Fill((100, 100, 255))
