@@ -21,6 +21,7 @@ if __name__ == '__main__':
             self.points = [Vector3(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1) for _ in range(500)]
             self.picturePoints = Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0)
             self.points += self.picturePoints
+            self.corner_distance = 1
 
             self.ob1Transform = Transform(Vector3(), Quaternion(1))
 
@@ -47,6 +48,7 @@ if __name__ == '__main__':
 
                 self.camera.transform.rotation = rotationX * rotationY
                 self.camera.transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)
+                self.camera.transform.position += Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 1000
             else:
                 self.ox += mdx
                 self.oy += mdy
@@ -56,6 +58,12 @@ if __name__ == '__main__':
                 self.ob1Transform.rotation = rotationX * rotationY
                 self.ob1Transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)
             pointsTr = [self.ob1Transform.GlobalizePosition(p) for p in self.points]
+            if inputs.Pressed("r"):
+                self.corner_distance *= 2
+            if inputs.Pressed("q"):
+                updater.canvas.zoom *= 1.1
+            if inputs.Pressed("e"):
+                updater.canvas.zoom /= 1.1
 
             if inputs.keyDown(pygame.K_t):
                 inputs.LockMouse()
@@ -66,6 +74,10 @@ if __name__ == '__main__':
             canvas.LockSurface()
             self.camera.DrawDots(canvas, pointsTr, 5, (100, 0, 000))
             self.camera.DrawLines(canvas, pointsTr[-4:], 5, (0, 100, 0))
+
+            corners = Vector3(self.corner_distance, 0, 0), Vector3(0, 0, self.corner_distance), Vector3(
+                0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0), Vector3(0, 1, 1), Vector3(0, 0, 1), Vector3(1, 0, 0)  # , Vector3(1, 0, 1)
+            self.camera.Draw_Wireframe(canvas, corners, 5, (255, 0, 0))
             # C.DrawTexturedPolygon(canvas, picturePoints, face.convert())
             canvas.UnlockSurface()
 

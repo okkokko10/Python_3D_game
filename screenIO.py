@@ -1,4 +1,5 @@
 from collections import Counter
+import itertools
 from typing import Callable
 import pygame
 import pygame.gfxdraw
@@ -155,8 +156,14 @@ class Canvas:
         # self.default_font = pygame.font.Font(None, 20)
 
     def Line(self, pos1, pos2, width, color):
-        pygame.draw.line(self.surface, color, self.convert(
-            pos1), self.convert(pos2), int(width))
+        try:
+            pygame.draw.line(self.surface, color, self.convert(
+                pos1), self.convert(pos2), int(width))
+        except TypeError as e:
+            print("line 163 in screenIO")
+            print(e)
+            print(pos1, pos2)
+            print(self.convert(pos1), self.convert(pos2))
 
     def Lines(self, poslist, width, color):
         closed = False
@@ -257,6 +264,11 @@ class Canvas:
 
     def Blits(self, sources: 'list[tuple[pygame.Surface,Vector]]'):
         self.surface.blits(sources)  # [(s, p) for p, s in sources])
+
+    def GroupLines(self, positions: Iterable, width, color):
+        "draw lines from every point to every other point"
+        for a, b in itertools.combinations(positions, 2):
+            self.Line(a, b, width, color)
 
 
 class CanvasZoom(Canvas):

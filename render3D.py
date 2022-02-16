@@ -8,7 +8,7 @@ class Camera:
         self.height = 1
         self.width = 1
 
-    def ProjectPosition(self, other: 'Vector3', countOutside=False):
+    def ProjectPosition(self, other: 'Vector3', countOutside=True):
         p = self.transform.LocalizePosition(other)
         if p.k <= 0:
             return None
@@ -29,7 +29,7 @@ class Camera:
                 canvas.Circle(p, radius, color)
             pass
 
-    def ProjectPoints(self, vectors, countOutside=False):
+    def ProjectPoints(self, vectors, countOutside=True):
         return [p for p in (self.ProjectPosition(v, countOutside) for v in vectors) if p]
 
     def DrawTexturedPolygon(self, canvas: 'Canvas', vectors, image):
@@ -37,3 +37,7 @@ class Camera:
         if len(poslist) >= 3:
             # canvas.TexturedPolygon(poslist, image)
             canvas.StretchTexture(poslist, image)
+
+    def Draw_Wireframe(self, canvas: 'Canvas', vectors, width, color):
+        poslist = self.ProjectPoints(vectors)
+        canvas.GroupLines(poslist, width, color)
