@@ -154,7 +154,7 @@ class Vector:
 
     def complexDiv(self, other: 'Vector'):
         "self / other"
-        self.complexMul(other.complexConjugate()) / other.lengthSq()
+        return self.complexMul(other.complexConjugate()) / other.lengthSq()
 
     def IsInside(self, start: 'Vector', stop: 'Vector'):
         "if this vector is inside the rectangle with start as top-left and stop as bottom-right. stop is outside the rectangle"
@@ -165,6 +165,9 @@ class Vector:
 
     def distance(self, other: 'Vector'):
         return math.sqrt(self.distanceSq(other))
+
+    def __repr__(self) -> str:
+        return f"{str(type(self))}{str(tuple(self))}"
 
 
 class IntVec(Vector):

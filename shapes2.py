@@ -133,26 +133,34 @@ class Point(GameObject):
 import menus
 
 
-class EditorAction:
-    def __init__(self, editor: 'Editor', variables: set[VariableHolder[Position]]):
+class EditorAction(Generic[_VT]):
+    def __init__(self, editor: 'Editor', variables: set[VariableHolder[_VT]]):
         self.editor = editor
         self.start_editor_pos = self.editor.picker_position.Get()
         self.start_values = dict((var, var.Get()) for var in variables)
+        self.pivots = self.editor.pivot_positions.Get().copy()
 
     def Update(self):
         editor_pos = self.editor.picker_position.Get()
         for var, start_pos in self.start_values.items():
-            self.UpdateVar(var, start_pos, self.start_editor_pos, editor_pos)
+            self.UpdateVar(var, start_pos, self.start_editor_pos, editor_pos, self.pivots)
 
-    def UpdateVar(self, var: VariableHolder[_VT], start_value: _VT, editor_start: Position, editor_stop: Position):
+    def UpdateVar(self, var: VariableHolder[_VT], start_value: _VT, editor_start: Position, editor_stop: Position, pivots: list[Position]):
         pass
 
     pass
 
 
-class EditorAction_move(EditorAction):
-    def UpdateVar(self, var: VariableHolder[_VT], start_value: _VT, editor_start: Position, editor_stop: Position):
+class EditorAction_move(EditorAction[Position]):
+    def UpdateVar(self, var: VariableHolder[Position], start_value: Position, editor_start: Position, editor_stop: Position, pivots: list[Position]):
         var.Set(start_value + editor_stop - editor_start)
+
+
+class EditorAction_rotate(EditorAction[Position]):
+    def UpdateVar(self, var: VariableHolder[Position], start_value: Position, editor_start: Position, editor_stop: Position, pivots: list[Position]):
+        p = pivots[-1]
+        stop_value = p + (start_value - p).complexMul((editor_stop - p).complexDiv(editor_start - p))
+        var.Set(stop_value)
     pass
 
 
@@ -185,7 +193,7 @@ class Editor:
         def setter(value: list[Position], pos_list: Variable[list[Position]], max_amount: Variable[int]):
             pos_list.value = value
             getter(pos_list, max_amount)
-        self.pivot_positions = VariableHolder(
+        self.pivot_positions: VariableHolder[list[Position]] = VariableHolder(
             VariableMap(
                 Variable([], name="pivot position list"), self.pivot_max_amount,
                 getter=getter,
@@ -198,15 +206,20 @@ class Editor:
         self.menu = menus.ContextMenu(
             [
                 "set to 3",
-                "open submenu"
+                "set mode >"
             ],
             {0: lambda: self.mode.Set(3)},
             {1: menus.ContextMenu(
                 [
-                    "nothing",
-                    "set to 4"
+                    "pick",
+                    "move",
+                    "rotate around pivot",
+                    "scale around pivot",
+                    "rotate/scale around pivot",
+                    "stretch normal to two pivots",
+                    "link selected variables"
                 ],
-                {1: lambda: self.mode.Set(4)},
+                dict((i, (lambda j: lambda: self.mode.Set(j))(i)) for i in range(7)),
                 {},
                 10
             )},
@@ -263,6 +276,8 @@ class Editor:
                 self.Do_Select_closest_posVar()
             case 1:
                 self.action = EditorAction_move(self, self.selected_posVars)
+            case 2:
+                self.action = EditorAction_rotate(self, self.selected_posVars)
 
     def Do_Right_Click(self):
         if self.action:
@@ -306,16 +321,16 @@ def main():
             canvas = updater.get_canvas()
             mpos = inputs.get_mouse_position()
             self.variables["mpos"].Set(mpos)
-            self.editor.hold.Set(inputs.keyPressed(pygame.K_LSHIFT))
-            if inputs.keyPressed(pygame.K_w):
+            self.editor.hold.Set(inputs.keyPressed(pygame.K_LSHIFT) or inputs.keyPressed(pygame.K_RSHIFT))
+            if inputs.keyPressed(pygame.K_w) or inputs.keyPressed(pygame.K_UP):
                 self.gameObjects.Add(Point(Variable(mpos)))
-            if inputs.keyDown(pygame.K_s) or inputs.mouseDown(1):
+            if inputs.keyDown(pygame.K_LEFT) or inputs.mouseDown(1):
                 self.editor.Do_Left_Click()
-            if inputs.keyDown(pygame.K_s) or inputs.mouseDown(3):
+            if inputs.keyDown(pygame.K_RIGHT) or inputs.mouseDown(3):
                 self.editor.Do_Right_Click()
-            if inputs.keyDown(pygame.K_d):
+            if inputs.keyDown(pygame.K_d) or inputs.keyDown(pygame.K_DOWN):
                 self.editor.Do_CreatePivot()
-            if inputs.mouseUp(1):
+            if inputs.mouseUp(1) or inputs.keyUp(pygame.K_LEFT):
                 self.editor.Do_Left_Up()
             self.editor.Do_Mousewheel(inputs.get_mousewheel())
             self.editor.Do_Update()
