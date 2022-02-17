@@ -155,19 +155,20 @@ from vector import Vector
 
 
 class Effect:
-    def __init__(self, color):
+    def __init__(self, color, background=None):
         self.color = color
+        self.background = background
     pass
 
 
 class TextEffects:
-    def __init__(self, lines: list[list[tuple[int, Effect]]] = None) -> None:
-        self.lines = lines or []
-        self.default_effect = Effect(color=(255, 255, 255))
+    def __init__(self, lines: list[list[tuple[int, Effect]]] = None, default=None) -> None:
         """line = self.lines[i] contains information on the i'th row.\n
         line[j] contains the line's j'th change in the effects, as a tuple of x, ef.\n
         x is the column the change starts at, and ef is the effect itself.
         Effects carry on to the next line."""
+        self.lines = lines or []
+        self.default_effect = default or Effect(color=(255, 255, 255))
 
     def Prepare(self, text: Text):
         """returns a list, which contains a list for each line of the text.
@@ -239,7 +240,7 @@ class RenderText:
         max_width = 0
         for line in prepared_text:
             for part in line:
-                s = self.font.render(part[0], False, part[1].color)
+                s = self.font.render(part[0], False, part[1].color, part[1].background)
                 blits.append((s, (part[2] * self.width, height)))
             if line:
                 max_width = max(max_width, line[-1][3] * self.width)

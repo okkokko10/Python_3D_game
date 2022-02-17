@@ -170,6 +170,15 @@ class Vector:
     def __repr__(self) -> str:
         return f"{str(type(self))}{str(tuple(self))}"
 
+    def slope(self):
+        "y/x. y/0 = inf. 0/0 = nan"
+        if self.x:
+            return self.y / self.x
+        elif self.y:
+            return math.copysign(math.inf, self.y)
+        else:
+            return math.nan
+
 
 class IntVec(Vector):
     def __init__(self, x=0, y=0):
