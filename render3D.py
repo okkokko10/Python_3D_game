@@ -2,6 +2,17 @@ from orientation import *
 from screenIO import *
 
 
+def isSmall(x):
+    return abs(x) < (1 << 16)
+
+
+def clamp(x, y):
+    while not (isSmall(x) and isSmall(y)):
+        x /= 1 << 4
+        y /= 1 << 4
+    return x, y
+
+
 class Camera:
     def __init__(self):
         self.transform = Transform(Vector3(0, 0, 0), Quaternion(1))
@@ -15,7 +26,9 @@ class Camera:
         if not countOutside and (abs(p.i) * 2 > self.width * p.k or abs(p.j) * 2 > self.height * p.k):
             return None
         x, y = p.i / p.k, p.j / p.k
-        return x, y
+        # if isSmall(x) and isSmall(y):
+        #     return x, y
+        return clamp(x, y)
 
     def DrawLines(self, canvas: 'Canvas', vectors, width, color):
         poslist = self.ProjectPoints(vectors)

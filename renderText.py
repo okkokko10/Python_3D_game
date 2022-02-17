@@ -193,7 +193,7 @@ class RenderText:
         self.color = color
         self.width, _ = self.font.size("a")
 
-    def RenderLines(self, text: Text, color=None):
+    def RenderLines(self, text: Text | list[str], color=None):
         if color is None:
             color = self.color
         # surface.fill((100, 0, 0))

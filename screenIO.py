@@ -257,7 +257,15 @@ class Canvas:
     #     pass
 
     def Blit(self, source: 'pygame.Surface', dest: 'tuple[int,int]' = (0, 0)):
+        "does not use zoom, instead uses pixels"
+        # try:
         self.surface.blit(source, tuple(dest))
+        # except TypeError:
+        #     if all(isinstance(i, int) for i in dest) and len(dest) == 2:
+        #         pass
+        #     else:
+        #         raise TypeError(f"{dest} is not a valid destination position")
+        #     pass
 
     def BlitCanvas(self, source: 'Canvas', dest: 'tuple[int,int]' = (0, 0)):
         self.surface.blit(source.surface, tuple(dest))
@@ -496,6 +504,12 @@ class Inputs:
 
     def Up(self, *names: str):
         return self.from_names(names, 2)
+
+    def arrow_WASD_vector(self):
+        return Vector(self.Pressed("right", "d") - self.Pressed("left", "a"), self.Pressed("up", "w") - self.Pressed("down", "s"))
+
+    def arrows_vector(self):
+        return Vector(self.Pressed("right") - self.Pressed("left"), self.Pressed("up") - self.Pressed("down"))
 
 
 class Scene:

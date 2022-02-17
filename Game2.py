@@ -58,12 +58,16 @@ if __name__ == '__main__':
                 self.ob1Transform.rotation = rotationX * rotationY
                 self.ob1Transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)
             pointsTr = [self.ob1Transform.GlobalizePosition(p) for p in self.points]
-            if inputs.Pressed("r"):
+            if inputs.Pressed("f"):
                 self.corner_distance *= 2
             if inputs.Pressed("q"):
                 updater.canvas.zoom *= 1.1
             if inputs.Pressed("e"):
                 updater.canvas.zoom /= 1.1
+            # if inputs.Down("r"):
+            #     updater.canvas.zoom = 1
+            if inputs.Down('r'):
+                self.my = 0
 
             if inputs.keyDown(pygame.K_t):
                 inputs.LockMouse()
@@ -75,10 +79,18 @@ if __name__ == '__main__':
             self.camera.DrawDots(canvas, pointsTr, 5, (100, 0, 000))
             self.camera.DrawLines(canvas, pointsTr[-4:], 5, (0, 100, 0))
 
-            corners = Vector3(self.corner_distance, 0, 0), Vector3(0, 0, self.corner_distance), Vector3(
-                0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0), Vector3(0, 1, 1), Vector3(0, 0, 1), Vector3(1, 0, 0)  # , Vector3(1, 0, 1)
+            corners = (Vector3(self.corner_distance, 0, 0), Vector3(0, 0, self.corner_distance),
+                       Vector3(self.corner_distance, 1, 0), Vector3(0, 1, self.corner_distance),
+                       Vector3(0, 0, 0), Vector3(0, 1, 0),)
+            markers = Vector3(1, 1, 0), Vector3(0, 1, 1), Vector3(0, 0, 1), Vector3(1, 0, 0)  # , Vector3(1, 0, 1)
+
             self.camera.Draw_Wireframe(canvas, corners, 5, (255, 0, 0))
+            self.camera.DrawDots(canvas, markers, 5, (0, 0, 0))
+            corners_projected = self.camera.ProjectPoints(corners)
+            markers_projected = self.camera.ProjectPoints(markers)
+
             # C.DrawTexturedPolygon(canvas, picturePoints, face.convert())
+            canvas.Circle((0, 0), 2, (255, 255, 255))
             canvas.UnlockSurface()
 
     Upd = Updater(MyScene(), framerate=30, canvas=CanvasZoom(pygame.display.set_mode()))

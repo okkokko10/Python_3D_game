@@ -108,6 +108,7 @@ class Vector:
         return self.__class__(self.x * other.x - self.y * other.y, self.x * other.y + self.y * other.x)
 
     def complexConjugate(self):
+        "returns (x,-y)"
         return self.__class__(self.x, -self.y)
 
     def reflect(self, other: 'Vector'):
