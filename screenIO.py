@@ -65,6 +65,7 @@ class Updater:
             self.deltaTime = self._clock.tick(self.framerate)
             if pygame.event.get(pygame.QUIT):
                 self.Stop()
+                break
             self.events = pygame.event.get()
             if self.inputs:
                 self._Update_inputs()
@@ -72,6 +73,10 @@ class Updater:
                 self.scene.o_Update(self)
 
             pygame.display.update()
+        if self.scene:
+            self.scene.o_Quit(self)
+        if self.canvas and self.canvas.surface is pygame.display.get_surface():
+            pygame.display.quit()
 
     def _Update_inputs(self):
         self.inputs.UpdateInputs(self.events, self.deltaTime)
@@ -527,4 +532,8 @@ class Scene:
 
     def o_Update(self, updater: 'Updater'):
         'runs every frame'
+        pass
+
+    def o_Quit(self, updater: 'Updater'):
+        'runs when quitting'
         pass
