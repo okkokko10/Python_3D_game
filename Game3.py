@@ -8,6 +8,7 @@ import pygame
 import renderText
 import vector
 import orientation2 as oi
+import random
 if __name__ == '__main__':
     class MyScene(Scene):
         def o_Init(self, updater: 'Updater'):
@@ -23,28 +24,55 @@ if __name__ == '__main__':
             self.rtext = renderText.RenderText(25)
             self.rtext_small = renderText.RenderText(15)
             self.settings = {"lines to center": False, "lengths": True}
+            self.ob1Transform = oi.Transform(oi.Vector3(0, 2, 0), oi.IDENTITY)
+            self.points = [oi.Vector3(random.random() * 2 - 1, random.random() * 2 - 1, random.random() * 0.1) for _ in range(500)]
 
         def o_Update(self, updater: 'Updater'):
             canvas = updater.get_canvas()
+            canvas.Fill((0, 0, 100))
             inputs = updater.get_inputs()
             deltaTime = updater.get_deltaTime()
             WASDvector = oi.Vector3(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
                                     inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
 
+            def Tag_pixel(pos, text, color):
+                # sf = self.rtext.RenderLines(text, color)
+                eff = renderText.TextEffects(default=renderText.Effect(color, (0, 0, 0)))
+                sf = self.rtext_small.RenderEffects(eff.Prepare(text))
+                canvas.Blit(sf, pos)
+
+            def Tag(pos, text, color):
+                Tag_pixel(canvas.convert(pos), text, color)
+
+            def arraytext(a):
+                return (' '.join(str(round(x, 4)).ljust(7) for x in y) for y in a)
             if inputs.Pressed("mouse left", "x"):
                 deltaTime /= 5
             if inputs.Pressed("mouse right", "c"):
                 deltaTime *= 5
 
-            mdx, mdy = inputs.get_mouse_movement() / 4 + inputs.arrows_vector().complexConjugate() * deltaTime / 20
+            mdx, mdy = inputs.get_mouse_movement().complexConjugate() / 4 + inputs.arrows_vector() * deltaTime / 20
             self.mx += mdx
             self.my += mdy
             rotationX = oi.rotation_around((0, 1, 0), (self.mx * math.pi / 180))
             rotationY = oi.rotation_around((1, 0, 0), (self.my * math.pi / 180))
+            drX = oi.rotation_around((0, 1, 0), (mdx * math.pi / 180))
+            drY = oi.rotation_around((1, 0, 0), (mdy * math.pi / 180))
+            self.ob1Transform.rotation = oi.chain_rotation(rotationX, rotationY)
 
             self.camera.transform.rotation = oi.chain_rotation(rotationX, rotationY)
-            self.camera.transform.position += oi.rotate(rotationX, WASDvector * deltaTime * 0.001)
+            # self.camera.transform.rotation = self.camera.transform.rotation @ drX @ drY
+            # self.camera.transform.position += oi.rotate(rotationX, WASDvector * deltaTime * 0.001)
+            self.camera.transform.position += oi.rotate(self.camera.transform.rotation, WASDvector * deltaTime * 0.001)
             self.camera.transform.position += oi.Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 1000
+
+            pointsTr = [self.ob1Transform.GlobalizePosition(p) for p in self.points]
+            pointsUn = [self.ob1Transform.LocalizePosition(p) for p in pointsTr]
+            self.camera.DrawDots(canvas, pointsTr, 5, (100, 0, 0))
+            self.camera.DrawDots(canvas, pointsUn, 5, (0, 0, 0))
+            self.camera.DrawDots(canvas, self.points, 5, (0, 100, 0))
+            a = (self.ob1Transform.rotation.transpose() @ self.ob1Transform.rotation)
+            Tag_pixel((10, 100), (*arraytext(a), ""), (0, 255, 0))
 
             if inputs.Pressed("f"):
                 self.corner_distance *= 2
@@ -67,12 +95,11 @@ if __name__ == '__main__':
             if inputs.keyDown(pygame.K_y):
                 inputs.UnlockMouse()
             # face = facecamera.GetPhotos()
-            canvas.Fill((0, 0, 100))
             # canvas.LockSurface()
 
             corners = ((self.corner_distance, 0, 0), (0, 0, self.corner_distance),
                        (self.corner_distance, 1, 0), (0, 1, self.corner_distance),
-                       (0, 0, 0), (0, 1, 0))
+                       (0, 0, 0), (0, self.corner_distance, 0))
             markers = (1, 0, 0), (0, 0, 1), (1, 1, 0), (0, 1, 1)  # , Vector3(1, 0, 1)
             markers2 = (v for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
 
@@ -81,15 +108,6 @@ if __name__ == '__main__':
             centers_projected = corners_projected[4:]
             markers_projected = self.camera.ProjectPoints(markers)
             center_camera_pos = self.camera.transform.LocalizePosition((0, 0, 0))
-
-            def Tag_pixel(pos, text, color):
-                # sf = self.rtext.RenderLines(text, color)
-                eff = renderText.TextEffects(default=renderText.Effect(color, (0, 0, 0)))
-                sf = self.rtext_small.RenderEffects(eff.Prepare(text))
-                canvas.Blit(sf, pos)
-
-            def Tag(pos, text, color):
-                Tag_pixel(canvas.convert(pos), text, color)
 
             def DistanceLine(a, b, width, color, tag_offset=0):
                 a, b = vector.Vector(*a), vector.Vector(*b)

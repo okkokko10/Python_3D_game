@@ -14,7 +14,7 @@ def cross_product_matrix(vector: Vector):
     x, y, z = vector
     return np.array([[0, -z, y],
                      [z, 0, x],
-                     [-y, x, 0]])
+                     [-y, -x, 0]])
 
 
 def rotation_matrix_from_axis_rotation(vector: Vector, co: float, si: float) -> Rotation:
