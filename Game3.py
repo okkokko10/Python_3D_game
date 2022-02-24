@@ -1,19 +1,20 @@
 # import sys
 # sys.path.append("..")
 
-from orientation import *
+# from orientation import *
 from screenIO import *
 from render3D import *
 import pygame
 import renderText
 import vector
+import orientation2 as oi
 if __name__ == '__main__':
     class MyScene(Scene):
         def o_Init(self, updater: 'Updater'):
             updater.get_inputs().LockMouse()
 
             self.camera = Camera()
-            self.camera.transform.position = Vector3(-1, 0, -1)
+            self.camera.transform.position = oi.Vector3(-1, 0, -1)
             self.camera.width = updater.canvas.ratio
 
             self.corner_distance = 1
@@ -27,8 +28,8 @@ if __name__ == '__main__':
             canvas = updater.get_canvas()
             inputs = updater.get_inputs()
             deltaTime = updater.get_deltaTime()
-            WASDvector = Vector3(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
-                                 inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
+            WASDvector = oi.Vector3(inputs.keyPressed(pygame.K_d) - inputs.keyPressed(pygame.K_a), 0,
+                                    inputs.keyPressed(pygame.K_w) - inputs.keyPressed(pygame.K_s))
 
             if inputs.Pressed("mouse left", "x"):
                 deltaTime /= 5
@@ -38,12 +39,12 @@ if __name__ == '__main__':
             mdx, mdy = inputs.get_mouse_movement() / 4 + inputs.arrows_vector().complexConjugate() * deltaTime / 20
             self.mx += mdx
             self.my += mdy
-            rotationX = Vector3(0, 1, 0).RotationAround(self.mx * math.pi / 180)
-            rotationY = Vector3(1, 0, 0).RotationAround(self.my * math.pi / 180)
+            rotationX = oi.rotation_around((0, 1, 0), (self.mx * math.pi / 180))
+            rotationY = oi.rotation_around((1, 0, 0), (self.my * math.pi / 180))
 
-            self.camera.transform.rotation = rotationX * rotationY
-            self.camera.transform.position += rotationX.Rotate(WASDvector * deltaTime * 0.001)
-            self.camera.transform.position += Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 1000
+            self.camera.transform.rotation = oi.chain_rotation(rotationX, rotationY)
+            self.camera.transform.position += oi.rotate(rotationX, WASDvector * deltaTime * 0.001)
+            self.camera.transform.position += oi.Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 1000
 
             if inputs.Pressed("f"):
                 self.corner_distance *= 2
@@ -69,17 +70,17 @@ if __name__ == '__main__':
             canvas.Fill((0, 0, 100))
             # canvas.LockSurface()
 
-            corners = (Vector3(self.corner_distance, 0, 0), Vector3(0, 0, self.corner_distance),
-                       Vector3(self.corner_distance, 1, 0), Vector3(0, 1, self.corner_distance),
-                       Vector3(0, 0, 0), Vector3(0, 1, 0))
-            markers = Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(1, 1, 0), Vector3(0, 1, 1)  # , Vector3(1, 0, 1)
-            markers2 = (v for v in (Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)))
+            corners = ((self.corner_distance, 0, 0), (0, 0, self.corner_distance),
+                       (self.corner_distance, 1, 0), (0, 1, self.corner_distance),
+                       (0, 0, 0), (0, 1, 0))
+            markers = (1, 0, 0), (0, 0, 1), (1, 1, 0), (0, 1, 1)  # , Vector3(1, 0, 1)
+            markers2 = (v for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
 
             self.camera.Draw_Wireframe(canvas, corners, 5, (255, 0, 0))
             corners_projected = self.camera.ProjectPoints(corners)
             centers_projected = corners_projected[4:]
             markers_projected = self.camera.ProjectPoints(markers)
-            center_camera_pos = self.camera.transform.LocalizePosition(Vector3(0, 0, 0))
+            center_camera_pos = self.camera.transform.LocalizePosition((0, 0, 0))
 
             def Tag_pixel(pos, text, color):
                 # sf = self.rtext.RenderLines(text, color)
@@ -127,7 +128,7 @@ if __name__ == '__main__':
                         "right: " + str(r_right),
                         "left: " + str(r_left),
                         "both: " + str(r_both),
-                        "corner: " + str(center_camera_pos.k),
+                        "corner: " + str(center_camera_pos[2]),
                         str(te),
                         "" + str(d_side_left)
                     ], (255, 255, 255))

@@ -48,12 +48,14 @@ class Vector:
 
     def __mul__(self, other):
         if isinstance(other, Vector):
+            raise TypeError()
             return self.__class__(*(a * (b) for a, b in zip(self, other)))
         else:
             return self.__class__(*(a * (other) for a in self))
 
     def __rmul__(self, other):
         if isinstance(other, Vector):
+            raise TypeError()
             return self.__class__(*(b * a for a, b in zip(self, other)))
         else:
             return self.__class__(*(other * a for a in self))
