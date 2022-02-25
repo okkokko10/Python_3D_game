@@ -4,10 +4,9 @@ import math
 import numpy as np
 
 
-IDENTITY = np.identity(3)
-
-
 Rotation = np.ndarray
+
+IDENTITY: Rotation = np.identity(3)
 
 
 class Vector3(np.ndarray):
