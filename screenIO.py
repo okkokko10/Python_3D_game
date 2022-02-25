@@ -19,10 +19,6 @@ def vec(*args: 'float'):
     return Vector(*args)
 
 
-class ObjectStorage:
-    'Empty object for storing objects'
-    pass
-
 # TODO: an info attribute to updater, that tells things like age. or just an age attribute
 # Actually, maybe add that to scene
 
@@ -35,13 +31,12 @@ class Updater:
     # updateFunction: 'Callable[[Updater],None]|None' = None
     scene: 'Scene|None' = None
     framerate = DEFAULT_FRAMERATE
-    objects: 'ObjectStorage' = None
 
     _clock: 'pygame.time.Clock' = None
     _running: 'bool' = None
     deltaTime: 'int' = None
 
-    def __init__(self, scene: 'Scene|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE, objectStorage=None):
+    def __init__(self, scene: 'Scene|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE):
         """setting canvas and inputs to True uses the default, and False disables them.\n
         init is a function that takes the updater as argument and is called once when updater.Play() is called\n
         init should return a function func\n
@@ -52,7 +47,6 @@ class Updater:
         if inputs:
             self.inputs = Inputs() if inputs is True else inputs
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
-        self.objects = objectStorage or ObjectStorage()
         if scene:
             self.scene = scene
         self._init()
@@ -95,9 +89,6 @@ class Updater:
     def SetFramerate(self, framerate):
         self.framerate = framerate
 
-    # def InitObjectStorage(self, objectStorage: 'ObjectStorage' = None):
-    #     self.objects = objectStorage or ObjectStorage()
-
     def get_canvas(self):
         return self.canvas
 
@@ -107,10 +98,8 @@ class Updater:
     def get_inputs(self):
         return self.inputs
 
-    def get_objects(self):
-        return self.objects
-
     def get_deltaTime(self):
+        "time since last frame, in milliseconds"
         return self.deltaTime
 
     def get_events(self):
@@ -127,11 +116,10 @@ class Updater:
 
 class SubUpdater(Updater):
 
-    def __init__(self, scene: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = False, inputs: 'Inputs|bool' = False, objectStorage=None):
+    def __init__(self, scene: 'Callable[[Updater],None]|None' = None, canvas: 'Canvas|bool' = False, inputs: 'Inputs|bool' = False):
         'not ready yet'
         if canvas:
             self.canvas = Canvas(vec(800, 800)) if canvas == True else canvas
-        self.objects = objectStorage or ObjectStorage()
         self.scene = scene
         if inputs:
             self.inputs = Inputs() if inputs == True else inputs
@@ -282,6 +270,15 @@ class Canvas:
         "draw lines from every point to every other point"
         for a, b in itertools.combinations(positions, 2):
             self.Line(a, b, width, color)
+
+    @property
+    def size(self):
+        return Vector(self.width, self.height)
+
+    @property
+    def center(self):
+        "center pixel"
+        return Vector(self.width // 2, self.height // 2)
 
 
 class CanvasZoom(Canvas):
@@ -491,10 +488,6 @@ class Inputs:
     def get_mouse_position(self): return self._mouse_path[-1]
     def get_mouse_path(self): return self._mouse_path
 
-    def WASD(self):
-        return vec(self.keyPressed(pygame.K_d) - self.keyPressed(pygame.K_a),
-                   self.keyPressed(pygame.K_w) - self.keyPressed(pygame.K_s))
-
     def get_mousewheel(self):
         return self._mouse_downs[4] - self._mouse_downs[5]
 
@@ -515,6 +508,12 @@ class Inputs:
 
     def arrows_vector(self):
         return Vector(self.Pressed("right") - self.Pressed("left"), self.Pressed("up") - self.Pressed("down"))
+
+    def WASD_vector(self):
+        return Vector(self.keyPressed(pygame.K_d) - self.keyPressed(pygame.K_a),
+                      self.keyPressed(pygame.K_w) - self.keyPressed(pygame.K_s))
+    WASD = WASD_vector
+    "old name"
 
 
 class Scene:
