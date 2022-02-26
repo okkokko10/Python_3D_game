@@ -69,11 +69,15 @@ if __name__ == '__main__':
                 oi.Vector3(0, 0, 0),
                 oi.Vector3(0, 0, 1)
             ])
-            self.mode = False
+            self.movement_mode = True
+            self.settings = {"crosshair": True, "info": True}
             self.object1_rotation = RotationController()
-            self.raycamera = rm.RayCamera(600, 400, 400)
+            self.zooming = 4
+            self.raycamera = rm.RayCamera(*(updater.canvas.size // self.zooming), self.camera.zoom // self.zooming)
             self.ray_object_list = rm.Raymarch_list()
-            self.ray_object_list.spheres = [rm.Sphere(oi.Vector3(0, 0, 0), 1, (100, 100, 0))]
+            self.ray_object_list.spheres = [rm.Sphere(oi.Vector3(0, 0, 0), 1, (100, 100, 0)),
+                                            rm.Sphere(oi.Vector3(0, 3, 0), 2, (0, 100, 0))]
+            self.text_renderer = renderText.RenderText(25)
 
         def o_Update(self, updater: 'Updater'):
             canvas = updater.get_canvas()
@@ -81,15 +85,16 @@ if __name__ == '__main__':
             inputs = updater.get_inputs()
             deltaTime = updater.get_deltaTime()
             WASDvector = oi.xy_to_x0y(inputs.WASD())
+            text_to_render = []
 
             if inputs.Pressed("mouse left", "x"):
                 deltaTime /= 5
             if inputs.Pressed("mouse right", "c"):
                 deltaTime *= 5
             if inputs.Down("f"):
-                self.mode = not self.mode
+                self.movement_mode = not self.movement_mode
 
-            if self.mode:
+            if self.movement_mode:
                 rotable = self.camera
                 rotable_rotation = self.camera_rotation
             else:
@@ -97,13 +102,28 @@ if __name__ == '__main__':
                 rotable_rotation = self.object1_rotation
             rotable_rotation.take_mouse(inputs, 0.25)
             rotable.transform.rotation = rotable_rotation.rot()
-            rotable.transform.position += oi.rotate(rotable.transform.rotation, WASDvector) * deltaTime * 0.001
-            rotable.transform.position += oi.Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 1000
+            rotable.transform.position += oi.rotate(rotable.transform.rotation, WASDvector) * deltaTime / 200
+            rotable.transform.position += oi.Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 200
 
             if inputs.Pressed("q"):
                 self.camera.zoom *= 1.1
             if inputs.Pressed("e"):
                 self.camera.zoom /= 1.1
+            # if inputs.Down("mouse up"):
+            #     self.raycamera.depth += 1
+            # if inputs.Down("mouse down"):
+            #     self.raycamera.depth -= 1
+            if inputs.Pressed("right shift"):
+                if inputs.Down("1"):
+                    self.settings["crosshair"] ^= True
+                if inputs.Down("2"):
+                    self.settings["info"] ^= True
+            if inputs.Pressed("1"):
+                self.raycamera.depth += inputs.get_mousewheel()
+            if inputs.Pressed("2"):
+                self.zooming += inputs.get_mousewheel()
+                self.zooming = max(self.zooming, 1)
+            self.raycamera.width, self.raycamera.height, self.raycamera.zoom = updater.canvas.width // self.zooming, updater.canvas.height // self.zooming, self.camera.zoom // self.zooming
 
             if False:
                 ax, ay = 64, 64
@@ -133,13 +153,24 @@ if __name__ == '__main__':
                         canvas.Circle((x2, y2), self.camera.zoom * radius // z2, color)
             if True:
                 self.raycamera.transform = self.camera.transform
-                a = self.raycamera.Draw(self.ray_object_list)
-                canvas.Blit(a, (0, 0))
+                rayimage, ray_info = self.raycamera.Draw(self.ray_object_list)
+                rayimage = pygame.transform.flip(rayimage, False, True)
+                pygame.transform.scale(rayimage, (*canvas.size,), canvas.surface)
+                text_to_render.extend(ray_info)
+                # canvas.Blit(a, (0, 0))
+                # for sphere in self.ray_object_list.spheres:
+                #     self.camera.DrawDots(canvas, [sphere.position], sphere.radius, (0, 255, 0))
+            if False:
+                self.camera.DrawDots(canvas, self.test_object.global_vertices(), 0.1, pygame.Color(255, 255, 0))
+                self.camera.Draw_Wireframe(canvas, self.test_object.global_vertices(), 0.05, pygame.Color(255, 255, 0))
+                self.camera.DrawDots(canvas, self.object1.global_vertices(), 0.1, pygame.Color(255, 0, 0))
+            if self.settings["crosshair"]:
+                canvas.Circle(canvas.center, 2, (255, 255, 255))  # reticle
 
-            self.camera.DrawDots(canvas, self.test_object.global_vertices(), 0.1, pygame.Color(255, 255, 0))
-            self.camera.Draw_Wireframe(canvas, self.test_object.global_vertices(), 0.05, pygame.Color(255, 255, 0))
-            self.camera.DrawDots(canvas, self.object1.global_vertices(), 0.1, pygame.Color(255, 0, 0))
-            canvas.Circle(canvas.center, 2, (255, 255, 255))  # reticle
+            if self.settings["info"]:
+                eff = renderText.TextEffects(default=renderText.Effect((0, 255, 0), (50, 50, 50)))
+                sf = self.text_renderer.RenderEffects(eff.Prepare(text_to_render))
+                canvas.Blit(sf, (0, 0))
 
     Upd = Updater(MyScene(), framerate=60, canvas=Canvas(pygame.display.set_mode()))
 
