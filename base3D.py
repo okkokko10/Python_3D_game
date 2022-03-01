@@ -76,7 +76,8 @@ if __name__ == '__main__':
             self.raycamera = rm.RayCamera(*(updater.canvas.size // self.zooming), self.camera.zoom // self.zooming)
             self.ray_object_list = rm.Raymarch_list()
             self.ray_object_list.spheres = [rm.Sphere(oi.Vector3(0, 0, 0), 1, (100, 100, 0)),
-                                            rm.Sphere(oi.Vector3(0, 3, 0), 2, (0, 100, 0))]
+                                            rm.Sphere(oi.Vector3(0, 3, 0), 2, (0, 100, 0)),
+                                            rm.Sphere(oi.Vector3(0, 0, 0), 15, (0, 0, 255))]
             self.text_renderer = renderText.RenderText(25)
 
         def o_Update(self, updater: 'Updater'):
@@ -86,6 +87,7 @@ if __name__ == '__main__':
             deltaTime = updater.get_deltaTime()
             WASDvector = oi.xy_to_x0y(inputs.WASD())
             text_to_render = []
+            text_to_render.append("milliseconds spent on previous frame: %s" % deltaTime)
 
             if inputs.Pressed("mouse left", "x"):
                 deltaTime /= 5
@@ -119,7 +121,7 @@ if __name__ == '__main__':
                 if inputs.Down("2"):
                     self.settings["info"] ^= True
             if inputs.Pressed("1"):
-                self.raycamera.depth += inputs.get_mousewheel()
+                self.raycamera.iteration_amount += inputs.get_mousewheel()
             if inputs.Pressed("2"):
                 self.zooming += inputs.get_mousewheel()
                 self.zooming = max(self.zooming, 1)
@@ -157,6 +159,7 @@ if __name__ == '__main__':
                 rayimage = pygame.transform.flip(rayimage, False, True)
                 pygame.transform.scale(rayimage, (*canvas.size,), canvas.surface)
                 text_to_render.extend(ray_info)
+                text_to_render.append("pixelation: %s" % self.zooming)
                 # canvas.Blit(a, (0, 0))
                 # for sphere in self.ray_object_list.spheres:
                 #     self.camera.DrawDots(canvas, [sphere.position], sphere.radius, (0, 255, 0))
@@ -164,9 +167,9 @@ if __name__ == '__main__':
                 self.camera.DrawDots(canvas, self.test_object.global_vertices(), 0.1, pygame.Color(255, 255, 0))
                 self.camera.Draw_Wireframe(canvas, self.test_object.global_vertices(), 0.05, pygame.Color(255, 255, 0))
                 self.camera.DrawDots(canvas, self.object1.global_vertices(), 0.1, pygame.Color(255, 0, 0))
+
             if self.settings["crosshair"]:
                 canvas.Circle(canvas.center, 2, (255, 255, 255))  # reticle
-
             if self.settings["info"]:
                 eff = renderText.TextEffects(default=renderText.Effect((0, 255, 0), (50, 50, 50)))
                 sf = self.text_renderer.RenderEffects(eff.Prepare(text_to_render))

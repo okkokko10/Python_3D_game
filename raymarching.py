@@ -24,10 +24,10 @@ def rays(rotation: oi.Rotation, width: int, height: int, zoom: float, dtype=None
     return x, y, z
 
 
-def rays2(rotation: oi.Rotation, width: int, height: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    def func(x, y):
-        return rotation @ np.array((x.flatten() / width - 0.5, y.flatten() / height - 0.5, 1), dtype=object)
-    return np.fromfunction(func, (width, height))
+# def rays2(rotation: oi.Rotation, width: int, height: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+#     def func(x, y):
+#         return rotation @ np.array((x.flatten() / width - 0.5, y.flatten() / height - 0.5, 1), dtype=object)
+#     return np.fromfunction(func, (width, height))
 
 
 # a = rays2(oi.IDENTITY, 8, 8)
@@ -36,13 +36,13 @@ def rays2(rotation: oi.Rotation, width: int, height: int) -> tuple[np.ndarray, n
 class RayCamera:
     transform: oi.Transform
 
-    def __init__(self, width: int, height: int, zoom: float, depth: int = 20) -> None:
+    def __init__(self, width: int, height: int, zoom: float, iteration_amount: int = 20) -> None:
         "depth is how many iterations"
         self.width = width
         self.height = height
         self.zoom = zoom
         self.transform = oi.Transform(oi.Vector3(0, 0, 0), oi.IDENTITY)
-        self.depth = depth
+        self.iteration_amount = iteration_amount
         pass
 
     def Draw(self, objects: 'Raymarch_list'):
@@ -51,8 +51,8 @@ class RayCamera:
         lengths = np.zeros(shape=(self.width, self.height), dtype=floot)
 
         def spheres(xl, yl, zl):
-            return [np.sqrt((xl - o.position[0])**2 + (yl - o.position[1]) ** 2
-                            + (zl - o.position[2])**2, dtype=floot) - o.radius for o in objects.spheres] + [np.fabs(zl - 5)]
+            return [np.fabs(np.sqrt((xl - o.position[0])**2 + (yl - o.position[1]) ** 2
+                            + (zl - o.position[2])**2, dtype=floot) - o.radius) for o in objects.spheres] + [np.fabs(zl - 5)]  # last part is not generally part of the function
 
         def distance(xl, yl, zl):
             return functools.reduce(np.fmin, spheres(xl, yl, zl))  # *spheres(xl - 8, yl, zl)))
@@ -74,7 +74,7 @@ class RayCamera:
             zl = z * lengths + self.transform.position[2]
             return xl, yl, zl
 
-        for i in range(self.depth):
+        for i in range(self.iteration_amount):
             a = distance(*positions())
             lengths += a
         # lengths = np.asarray(lengths, dtype=int)
@@ -86,7 +86,7 @@ class RayCamera:
         # pxarray[:, :] = lengths1
         # pxarray.close()
         pos = positions()
-        dis, clo = closest(*pos)
+        distance_to_closest, closest_object = closest(*pos)
         face = pygame.transform.flip(facecamera.GetPhotos(), 0, 1)
         face_colors = pygame.surfarray.pixels3d(face)
         colors = pygame.surfarray.pixels3d(surface)
@@ -101,16 +101,18 @@ class RayCamera:
             return np.array((arr, arr, arr)).transpose((1, 2, 0))
         poscol = (np.asarray(pos).transpose((1, 2, 0)) + 0.5) % 1 * 255
 
-        zoom = 100
-        isdis = triple((clo != 1))
-        np.minimum
+        isdis = triple((closest_object < 2))
         colors[:, :, :] = np.where(isdis, face_colors[(np.clip((pos[0] / 4 + 0.5) % 1, 0, 1) * (face.get_width() - 1)).astype(np.uint16),
                                                       (np.clip((pos[1] / 4 - 0.5) % 1, 0, 1) * (face.get_height() - 1)).astype(np.uint16)], poscol)
         center = self.width // 2, self.height // 2
         info = ["distance from camera: %s" % round(lengths[center], 5),
                 "coordinates: %s" % [round(pos[i][center], 5) for i in range(3)],
                 "color: %s" % colors[center],
-                "closest object: %s" % clo[center]]
+                "closest object: %s" % closest_object[center],
+                "distance to closest object: %s" % distance_to_closest[center],
+                "size: %s %s" % (self.width, self.height),
+                "zoom: %s" % self.zoom,
+                "iterations: %s" % self.iteration_amount]
         return surface, info
 
     pass
@@ -155,3 +157,8 @@ class Sphere(Raymarch_object):
 
     def distance(self, pos: oi.Vector3):
         return abs(math.dist(self.position - pos) - self.radius)
+
+
+# import timeit
+# t = timeit.Timer(lambda: (rays(oi.elemental_rotation_y(2), 2000, 2000, 2000))).autorange()
+# print(t)
