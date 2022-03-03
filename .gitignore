@@ -1,2 +1,6 @@
 __pycache__
 Test*
+build
+*.c
+*.pyd
+*.html

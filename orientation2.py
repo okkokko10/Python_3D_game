@@ -132,3 +132,11 @@ class Transform:
         other = np.asarray(other)
 
         return self.rotation @ other
+
+    @staticmethod
+    def Get_Identity_Transform():
+        return Transform(Vector3(0, 0, 0), IDENTITY)
+
+    def Move(self, vector: Vector3):
+        "moves by vector in local space"
+        self.position += self.GlobalizeDirection(vector)

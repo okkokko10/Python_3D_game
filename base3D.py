@@ -41,9 +41,23 @@ class RotationController:
         return oi.chain_rotation(self.rotX(), self.rotY())
 
     def take_mouse(self, inputs: screenIO.Inputs, speed):
-        mdx, mdy = inputs.get_mouse_movement().complexConjugate() * speed + inputs.arrows_vector() * 0.1
+        mdx, mdy = inputs.get_mouse_movement().complexConjugate() * speed + inputs.arrows_vector()
         self.x += mdx
         self.y += mdy
+
+
+class Template_Player:
+    def __init__(self, transform: oi.Transform = None, speed: float = 1 / 200, mouse_sensitivity: float = 1 / 4):
+        self.transform = oi.Transform.Get_Identity_Transform() if transform is None else transform
+        self.rotation_controller = RotationController()
+        self.speed = speed
+        self.mouse_sensitivity = mouse_sensitivity
+
+    def Update(self, updater: screenIO.Updater):
+        self.rotation_controller.take_mouse(updater.inputs, self.mouse_sensitivity)
+        self.transform.rotation = self.rotation_controller.rot()
+        self.transform.Move((oi.xy_to_x0y(updater.inputs.WASD()) + oi.Vector3(0, updater.inputs.Pressed("space") -
+                            updater.inputs.Pressed("left shift"), 0)) * updater.deltaTime * self.speed)
 
 
 def cubegrid(x, y, z):
@@ -56,8 +70,8 @@ if __name__ == '__main__':
             updater.get_inputs().LockMouse()
 
             self.camera = Camera(updater.canvas.height, updater.canvas.width, updater.canvas.height)
-            self.camera.transform.position = oi.Vector3(-1, 0, -1)
-            self.camera_rotation = RotationController()
+            self.player = Template_Player()
+            self.player.transform.position = oi.Vector3(-1, 0, -1)
             a = [
                 *cubegrid(3, 2, 3),
                 oi.Vector3(1, 2, 1),
@@ -69,6 +83,7 @@ if __name__ == '__main__':
                 oi.Vector3(0, 0, 0),
                 oi.Vector3(0, 0, 1)
             ])
+            self.object1_player = Template_Player()
             self.movement_mode = True
             self.settings = {"crosshair": True, "info": True}
             self.object1_rotation = RotationController()
@@ -97,15 +112,11 @@ if __name__ == '__main__':
                 self.movement_mode = not self.movement_mode
 
             if self.movement_mode:
-                rotable = self.camera
-                rotable_rotation = self.camera_rotation
+                self.player.Update(updater)
+                self.camera.transform = self.player.transform
             else:
-                rotable = self.object1
-                rotable_rotation = self.object1_rotation
-            rotable_rotation.take_mouse(inputs, 0.25)
-            rotable.transform.rotation = rotable_rotation.rot()
-            rotable.transform.position += oi.rotate(rotable.transform.rotation, WASDvector) * deltaTime / 200
-            rotable.transform.position += oi.Vector3(0, inputs.Pressed("space") - inputs.Pressed("left shift"), 0) * deltaTime / 200
+                self.object1_player.Update(updater)
+                self.object1.transform = self.object1_player.transform
 
             if inputs.Pressed("q"):
                 self.camera.zoom *= 1.1
