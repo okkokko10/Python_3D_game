@@ -40,8 +40,8 @@ class RotationController:
     def rot(self):
         return oi.chain_rotation(self.rotX(), self.rotY())
 
-    def take_mouse(self, inputs: screenIO.Inputs, speed):
-        mdx, mdy = inputs.get_mouse_movement().complexConjugate() * speed + inputs.arrows_vector()
+    def take_mouse(self, updater: screenIO.Updater, speed):
+        mdx, mdy = updater.inputs.get_mouse_movement().complexConjugate() * speed + updater.inputs.arrows_vector() * updater.deltaTime / 20 * speed
         self.x += mdx
         self.y += mdy
 
@@ -54,7 +54,7 @@ class Template_Player:
         self.mouse_sensitivity = mouse_sensitivity
 
     def Update(self, updater: screenIO.Updater):
-        self.rotation_controller.take_mouse(updater.inputs, self.mouse_sensitivity)
+        self.rotation_controller.take_mouse(updater, self.mouse_sensitivity)
         self.transform.rotation = self.rotation_controller.rot()
         self.transform.Move((oi.xy_to_x0y(updater.inputs.WASD()) + oi.Vector3(0, updater.inputs.Pressed("space") -
                             updater.inputs.Pressed("left shift"), 0)) * updater.deltaTime * self.speed)

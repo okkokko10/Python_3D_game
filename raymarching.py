@@ -5,7 +5,7 @@ import math
 import pygame
 import orientation2 as oi
 import numpy as np
-import facecamera
+# import facecamera
 
 # def rays(rotation: oi.Rotation, width: int, height: int):
 #     def func(x, y):
@@ -33,6 +33,10 @@ def rays(rotation: oi.Rotation, width: int, height: int, zoom: float, dtype=None
 # a = rays2(oi.IDENTITY, 8, 8)
 # print(a)
 
+def sphere_sdf(x, y, z, pos, radius: float):
+    return (np.sqrt((x - pos[0])**2 + (y - pos[1]) ** 2 + (z - pos[2])**2) - radius)
+
+
 class RayCamera:
     transform: oi.Transform
 
@@ -50,15 +54,21 @@ class RayCamera:
         x, y, z = rays(self.transform.rotation, self.width, self.height, self.zoom, dtype=floot)
         lengths = np.zeros(shape=(self.width, self.height), dtype=floot)
 
-        def spheres(xl, yl, zl):
-            return [np.fabs(np.sqrt((xl - o.position[0])**2 + (yl - o.position[1]) ** 2
-                            + (zl - o.position[2])**2, dtype=floot) - o.radius) for o in objects.spheres] + [np.fabs(zl - 5)]  # last part is not generally part of the function
+        def sdf(xl, yl, zl):
+            # last part is not generally part of the function
+            return [np.fabs(sphere_sdf(xl, yl, zl, o.position, o.radius)) for o in objects.spheres] + [np.fabs(zl - 5)]
+
+        def sdf(xl, yl, zl):
+            a = sphere_sdf(xl, yl, np.abs(zl), (0, 0, 1), 1)
+            # return [a - np.where(zl < a, np.clip(zl, 0, 1), 0)]
+            return [a]
+            # return [a - np.clip(zl, 0, 1)]
 
         def distance(xl, yl, zl):
-            return functools.reduce(np.fmin, spheres(xl, yl, zl))  # *spheres(xl - 8, yl, zl)))
+            return functools.reduce(np.fmin, sdf(xl, yl, zl))  # *spheres(xl - 8, yl, zl)))
 
         def closest(xl, yl, zl):
-            sp = spheres(xl, yl, zl)
+            sp = sdf(xl, yl, zl)
             m = functools.reduce(np.fmin, sp)
             a = np.zeros(shape=(self.width, self.height), dtype=np.int64)
 
@@ -87,8 +97,8 @@ class RayCamera:
         # pxarray.close()
         pos = positions()
         distance_to_closest, closest_object = closest(*pos)
-        face = pygame.transform.flip(facecamera.GetPhotos(), 0, 1)
-        face_colors = pygame.surfarray.pixels3d(face)
+        # face = pygame.transform.flip(facecamera.GetPhotos(), 0, 1)
+        # face_colors = pygame.surfarray.pixels3d(face)
         colors = pygame.surfarray.pixels3d(surface)
         # red = pygame.surfarray.pixels_red(surface)
         # green = pygame.surfarray.pixels_green(surface)
@@ -99,11 +109,15 @@ class RayCamera:
 
         def triple(arr: np.ndarray):
             return np.array((arr, arr, arr)).transpose((1, 2, 0))
-        poscol = (np.asarray(pos).transpose((1, 2, 0)) + 0.5) % 1 * 255
+        # poscol = (np.asarray(pos).transpose((1, 2, 0)) + 0.5) % 1 * 255
+        poscol = (np.sin(np.asarray(pos).transpose((1, 2, 0))) + 1) * 127
+
+        # face_map = face_colors[(np.clip((pos[0] / 4 + 0.5) % 1, 0, 1) * (face.get_width() - 1)).astype(np.uint16),
+        #                        (np.clip((pos[1] / 4 - 0.5) % 1, 0, 1) * (face.get_height() - 1)).astype(np.uint16)]
 
         isdis = triple((closest_object < 2))
-        colors[:, :, :] = np.where(isdis, face_colors[(np.clip((pos[0] / 4 + 0.5) % 1, 0, 1) * (face.get_width() - 1)).astype(np.uint16),
-                                                      (np.clip((pos[1] / 4 - 0.5) % 1, 0, 1) * (face.get_height() - 1)).astype(np.uint16)], poscol)
+        colors[:, :, :] = poscol  # np.where(isdis, face_map, poscol)
+        colors[:, :, :] = np.where(triple(distance_to_closest < 1), poscol, 0)
         center = self.width // 2, self.height // 2
         info = ["distance from camera: %s" % round(lengths[center], 5),
                 "coordinates: %s" % [round(pos[i][center], 5) for i in range(3)],
