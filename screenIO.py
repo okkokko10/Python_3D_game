@@ -1,3 +1,4 @@
+"A module for using pygame. by Okko Heiniö"
 from collections import Counter
 import itertools
 from typing import Callable
@@ -489,7 +490,11 @@ class Inputs:
     def get_mouse_path(self): return self._mouse_path
 
     def get_mousewheel(self):
-        return self._mouse_downs[4] - self._mouse_downs[5]
+        return self._mouse_downs[4] - self._mouse_downs[5] + self.pseudo_get_mousewheel()
+
+    def pseudo_get_mousewheel(self):
+        "keypad 7 and 1"
+        return self._downs[pygame.K_KP7] - self._downs[pygame.K_KP1]
 
     def from_names(self, names: tuple[str], press: int):
         return InpOr(*(Inp(n) for n in names)).fits(self, press)
