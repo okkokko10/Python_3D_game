@@ -1,4 +1,4 @@
-# cython: language_level=3
+# cython: language_level=3, boundscheck=False,initializedcheck = False
 # 
 cimport cython
 from libc.math cimport sqrt,abs
@@ -28,16 +28,23 @@ cdef void set_vector(double x, double y, double z, double[:] out_vector3) nogil:
 
 @cython.boundscheck(False)
 @cython.cdivision(True)
-cdef void set_vector_unit(double x, double y, double z, double[:] out_vector3) nogil:
-    "do not input a zero vector"
-    cdef double l = 1/vector_length(x,y,z)
-    out_vector3[0] = x*l
-    out_vector3[1] = y*l
-    out_vector3[2] = z*l
+cdef double set_vector_unit(double x, double y, double z, double[:] out_vector3) nogil:
+    "do not input a zero vector. returns length of the original vector"
+    cdef double l = vector_length(x,y,z)
+    out_vector3[0] = x/l
+    out_vector3[1] = y/l
+    out_vector3[2] = z/l
+    return l
 
 @cython.boundscheck(False)
 cdef double vector_distance_Sq(double[:] a, double[:] b) nogil:
     return vector_lengthSq(a[0]-b[0],a[1]-b[1],a[2]-b[2])
+
+@cython.boundscheck(False)
+cdef void copy_vector(double[:] source, double[:] target) nogil:
+    target[0] = source[0]
+    target[1] = source[1]
+    target[2] = source[2]
 
 
 @cython.boundscheck(False)
@@ -71,6 +78,7 @@ cdef class Triangle:
     cdef public double[:] mirrorer1_direction, mirrorer2_direction
     cdef public double[:] mirrorer_origin
     cdef public int level
+    cdef public double size
     def __init__(self):
         self.mirrorer1_direction = self.mir1_dir_arr
         self.mirrorer2_direction = self.mir2_dir_arr
@@ -79,15 +87,14 @@ cdef class Triangle:
         set_vector_unit(-1,1,0,self.mirrorer1_direction)
         set_vector_unit(-1,1,0,self.mirrorer2_direction)
         self.level = 8
+        self.size = 1.
     @cython.boundscheck(False)
     @cython.initializedcheck(False)
     cdef double sdf(self,double[:] position,double[:] pos) nogil:
         # cdef double[3] pos_arr
         # cdef double[:] pos = pos_arr
-        pos[0] = position[0]
-        pos[1] = position[1]
-        pos[2] = position[2]
-        cdef double halver = 4
+        copy_vector(position,pos)
+        cdef double halver = self.size
         cdef int i
         for i in range(self.level):
             mirror(pos,self.mirrorer1_direction,self.mirrorer_origin)
@@ -120,8 +127,15 @@ cdef class Light:
     def get_position(self):
         return (self.position[0],self.position[1],self.position[2])
     @cython.boundscheck(False)
-    cdef void readjust_direction(self,double[:] direction, double[:] position) nogil:
-        set_vector_unit(self.position[0]-position[0],self.position[1]-position[1],self.position[2]-position[2],direction)
+    cdef double readjust_ray(self,double[:] direction, double[:] position) nogil:
+        "returns old distance"
+        # set_vector_unit(self.position[0]-position[0],self.position[1]-position[1],self.position[2]-position[2],direction)
+        cdef double out = set_vector_unit(position[0]-self.position[0],position[1]-self.position[1],position[2]-self.position[2],direction)
+        # self.distance_to(position,direction)
+        copy_vector(self.position,position)
+        return out
+        
+
     cdef double distance_to(self,double[:] position,double[:] direction) nogil:
         "misleading"
         return dot_minus(direction,position,self.position)
@@ -135,34 +149,41 @@ def get_sdf_object():
 def get_light():
     return light
 
-
+@cython.boundscheck(False)
 cdef double SDF(double[:] position,double[:] extra_vector) nogil:
     # return abs(vector3_length(position)-1)
-    return sdf_object.sdf(position,extra_vector)
+    return min(sdf_object.sdf(position,extra_vector),abs(position[2]-2))
 
-cdef int Iterate(double[:] position, double[:] direction,int max_iterations,double close_enough, double[:] extra_vector) nogil:
-    cdef int i
+@cython.cdivision(True)
+cdef double Iterate(double[:] position, double[:] direction,int max_iterations,double close_enough, double[:] extra_vector) nogil:
+    "returns the sdf result the iteration ended at"
     cdef double distance
+    cdef double min_distance = 100.
+    cdef double total_distance = 0.
+    cdef int i
     for i in range(max_iterations):
         distance = SDF(position,extra_vector)
         add_multiplied(position,direction,distance)
-        if distance<close_enough:
-            return i+1
-        if distance>10:
-            return 0
+        total_distance+=distance
+        if distance<min_distance:
+            min_distance = distance
+        if distance<close_enough*total_distance or distance>10:
+            return min_distance/total_distance
     else:
-        return 0
+        return min_distance/total_distance
 
 cdef class Rules:
     cdef public int max_iterations
     cdef public int max_iterations_light 
     cdef public double close_enough 
     cdef public double close_enough_light
+    cdef public double light_forgive
     def __init__(self):
         self.max_iterations = 10
         self.max_iterations_light = 20
         self.close_enough = 0.01
         self.close_enough_light = 0.001
+        self.light_forgive = 0.01
 
 cdef Rules rules = Rules()
 
@@ -177,6 +198,7 @@ cdef np.ndarray[ndim=3,dtype=double] Draw2(np.ndarray[ndim=2,dtype=double] rotat
     cdef int max_iterations = rules.max_iterations
     cdef double close_enough_light = rules.close_enough_light
     cdef int max_iterations_light = rules.max_iterations_light
+    cdef double light_forgive = rules.light_forgive
 
     cdef double [:,:,:] arr_view = arr
     cdef double [9] rotation_flat = rotation.flatten()
@@ -187,8 +209,8 @@ cdef np.ndarray[ndim=3,dtype=double] Draw2(np.ndarray[ndim=2,dtype=double] rotat
     cdef double[:] ray_position = ray_position_arr
     cdef double[3] extra_vector_arr
     cdef double[:] extra_vector = extra_vector_arr
-    cdef double distance_to_light_sq
-    cdef int iteration_result
+    cdef double distance_to_light
+    cdef double iteration_result
     cdef int sy,sx
     with nogil:
         with cython.boundscheck(False): 
@@ -201,14 +223,13 @@ cdef np.ndarray[ndim=3,dtype=double] Draw2(np.ndarray[ndim=2,dtype=double] rotat
                         arr_view[sx,sy,0] = ray_position[0]
                         arr_view[sx,sy,1] = ray_position[1]
                         arr_view[sx,sy,2] = ray_position[2]
-                        arr_view[sx,sy,3] = iteration_result
-                        if light.enabled !=0 and iteration_result !=0:
-                            light.readjust_direction(ray_direction,ray_position)
-                            # distance_to_light_sq = light.distance_to(ray_position,ray_direction)
+                        arr_view[sx,sy,3] = (iteration_result<close_enough)
+                        if light.enabled !=0 and iteration_result<close_enough:
+                            distance_to_light =light.readjust_ray(ray_direction,ray_position)
                             # add_multiplied(ray_position,ray_direction,close_enough)
                             iteration_result = Iterate(ray_position,ray_direction,max_iterations_light,close_enough_light,extra_vector)
                             # arr_view[sx,sy,4] = iteration_result
-                            arr_view[sx,sy,4] = (0>light.distance_to(ray_position,ray_direction))
+                            arr_view[sx,sy,4] = (distance_to_light<=light.readjust_ray(ray_direction,ray_position)+light_forgive)
                         else:
                             arr_view[sx,sy,4] = 0
 
