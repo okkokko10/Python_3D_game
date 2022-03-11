@@ -45,7 +45,7 @@ cdef class Vector3:
     cdef Vector3 copy(self):
         return Vector3(self.x,self.y,self.z)
     cdef Vector3 unit_update(self):
-        le = 1/self.length()
+        cdef double le = 1/self.length()
         self.x*=le
         self.y*=le
         self.z*=le
@@ -65,6 +65,12 @@ cdef class Vector3:
     def __str__(self):
         return "({:.3} {:.3} {:.3})".format(self.x,self.y,self.z)
 
+cdef Vector3 Unit_rotated(double x, double y, double z,double[:,:] rotation):
+    return Vector3( rotation[0][0]*x+rotation[0][1]*y+rotation[0][2]*z,
+                    rotation[1][0]*x+rotation[1][1]*y+rotation[1][2]*z,
+                    rotation[2][0]*x+rotation[2][1]*y+rotation[2][2]*z).unit_update()
+
+
 cdef class Rayable:
     pass
 
@@ -81,7 +87,11 @@ cdef class Sphere:
 cdef void mirror(Vector3 mirrorable, Vector3 direction, Vector3 origin):
     "mirrors the mirrorable, updating it. direction has to be unit"
     # mirrorable.add_multiplied(direction,(-2*max(0,direction.dot(mirrorable.sub(origin)))))
-    mirrorable.add_multiplied(direction,(-2*max(0,direction.dot(mirrorable))))
+    # mirrorable.add_multiplied(direction,(-2*max(0,direction.dot(mirrorable))))
+    cdef double a = direction.dot(mirrorable)
+    if a>0:
+        mirrorable.add_multiplied(direction,-2*a)
+
 
 cdef list spheres = [Sphere(Vector3(0,0,5),2),Sphere(Vector3(0,3,5),1),Sphere(Vector3(3,0,5),1)]
 
@@ -149,8 +159,8 @@ cdef class Ray:
         
 
 
-# cdef Vector3 ray_direction(int sx,int sy,np.ndarray[ndim=2,dtype=double] rotation):
-#     return Vector3(sx/shape_x-0.5,sy/shape_y-0.5,1).unit_rotate_update(rotation)
+cdef Vector3 ray_direction(double x,double y,double[:,:] rotation):
+    return Unit_rotated(x-0.5,y-0.5,1,rotation)
 
 
 
@@ -168,15 +178,18 @@ def rays(np.ndarray rotation, int width, int height, double zoom):
 
 cdef np.ndarray[ndim=3,dtype=double] Draw2(np.ndarray[ndim=2,dtype=double] rotation, Vector3 origin,int width,int height,double zoom, int max_iterations,double close_enough):
     cdef np.ndarray[ndim=3,dtype=double] arr = np.ndarray(shape=(width,height,4), dtype=np.double)
-    cdef np.ndarray[ndim=2,dtype=double] xl,yl,zl
-    xl,yl,zl = rays(rotation,width,height,zoom)
+    # cdef np.ndarray[ndim=2,dtype=double] xl,yl,zl
+    # xl,yl,zl = rays(rotation,width,height,zoom)
+    cdef double [:,:,:] arr_view = arr
+    cdef double [:,:] rotation_view = rotation
     cdef Ray ray1
     cdef int sy,sx
     for sy in range(height):
         for sx in range(width):
-            ray1=Ray(origin.copy(),Vector3(xl[sx,sy],yl[sx,sy],zl[sx,sy]))
-            arr[sx,sy,3] = ray1.iterate(max_iterations,close_enough)
-            arr[sx,sy,0:3] = ray1.position.x,ray1.position.y,ray1.position.z
+            # ray1=Ray(origin.copy(),Vector3(xl[sx,sy],yl[sx,sy],zl[sx,sy]))
+            ray1=Ray(origin.copy(),ray_direction(sx/width,sy/height,rotation_view))
+            arr_view[sx,sy,3] = ray1.iterate(max_iterations,close_enough)
+            arr_view[sx,sy,0:3] = ray1.position.x,ray1.position.y,ray1.position.z
 
     return arr
 

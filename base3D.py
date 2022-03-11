@@ -174,7 +174,7 @@ if __name__ == '__main__':
                 # canvas.Blit(a, (0, 0))
                 # for sphere in self.ray_object_list.spheres:
                 #     self.camera.DrawDots(canvas, [sphere.position], sphere.radius, (0, 255, 0))
-            if False:
+            if True:
                 self.camera.DrawDots(canvas, self.test_object.global_vertices(), 0.1, pygame.Color(255, 255, 0))
                 self.camera.Draw_Wireframe(canvas, self.test_object.global_vertices(), 0.05, pygame.Color(255, 255, 0))
                 self.camera.DrawDots(canvas, self.object1.global_vertices(), 0.1, pygame.Color(255, 0, 0))
