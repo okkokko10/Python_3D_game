@@ -95,9 +95,10 @@ class MyScene(screenIO.Scene):
 
         self.zoom = 0.5
         self.render_text = renderText.RenderText(25)
+        self.render_smaller = renderText.RenderText(10)
         self.max_iterations = 20
         self.resolution = 200
-        self.colorcycle = 127
+        self.colorcycle = math.pi * (1 << 0)
         self.triangle = Triangle_Shape.default()
         updater.inputs.LockMouse()
 
@@ -137,15 +138,17 @@ class MyScene(screenIO.Scene):
         if inputs.Pressed("2"):
             raymarchingC.get_sdf_object().level += inputs.get_mousewheel()
         if inputs.Pressed("3"):
+            if inputs.Down("p"):
+                self.resolution = 200
             self.resolution *= 2**(inputs.get_mousewheel() / 4)
         if inputs.Pressed("4"):
             raymarchingC.get_rules().close_enough *= 2**inputs.get_mousewheel()
         if inputs.Pressed("5"):
             raymarchingC.get_rules().close_enough_light *= 2**inputs.get_mousewheel()
-        if inputs.Down("mouse right"):
+        if inputs.Down("mouse right", "keypad 5"):
             self.player.speed /= 2
             self.resolution /= 2
-        if inputs.Up("mouse right"):
+        if inputs.Up("mouse right", "keypad 5"):
             self.player.speed *= 2
             self.resolution *= 2
         # if inputs.Pressed("mouse left"):
@@ -175,7 +178,7 @@ class MyScene(screenIO.Scene):
         t1 = time.perf_counter()
         surface = pygame.surface.Surface(arr.shape[:2])
         colors = pygame.surfarray.pixels3d(surface)
-        colors[:, :, :] = ((np.sin(arr[:, :, :3]) + 1) * 63
+        colors[:, :, :] = ((np.sin(arr[:, :, :3] * self.colorcycle) + 1) * 63
                            * (arr[:, :, 3][:, :, np.newaxis] != 0)
                            * ((arr[:, :, 4][:, :, np.newaxis] != 0) + 1)
                            ).astype(np.uint8)
@@ -204,7 +207,9 @@ class MyScene(screenIO.Scene):
             # "mirrorer 2: {:.3} {:.3} {:.3}".format(*raymarchingC.get_sdf_object().mirrorer2_direction,)
         ]))
         # text = self.render_text.RenderEffects(renderText.TextEffects().Prepare(["dt: {:.3}".format(t1 - t0)] + self.variable_changer.get_text()))
+        text_smaller = self.render_smaller.RenderEffects(renderText.TextEffects().Prepare([str(e) for e in updater.get_events()]))
         updater.canvas.Blit(text)
+        updater.canvas.Blit(text_smaller, (0, text.get_height()))
 
 
 screenIO.Updater(MyScene(), screenIO.Canvas(pygame.display.set_mode((800, 800))), framerate=60).Play()

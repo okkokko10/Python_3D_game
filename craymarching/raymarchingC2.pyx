@@ -156,7 +156,7 @@ cdef double SDF(double[:] position,double[:] extra_vector) nogil:
 
 @cython.cdivision(True)
 cdef double Iterate(double[:] position, double[:] direction,int max_iterations,double close_enough, double[:] extra_vector) nogil:
-    "returns the sdf result the iteration ended at"
+    "old: returns the sdf result the iteration ended at"
     cdef double distance
     cdef double min_distance = 100.
     cdef double total_distance = 0.
@@ -167,10 +167,10 @@ cdef double Iterate(double[:] position, double[:] direction,int max_iterations,d
         total_distance+=distance
         if distance<min_distance:
             min_distance = distance
-        if distance<close_enough*total_distance or distance>10:
-            return min_distance/total_distance
+        if distance<close_enough or total_distance>100:
+            return min_distance
     else:
-        return min_distance/total_distance
+        return min_distance
 
 cdef class Rules:
     cdef public int max_iterations
