@@ -1,6 +1,6 @@
 import math
 from typing import Iterable
-
+import numpy as np
 # TODO: Merge IntVec and Vector, stop the automatic float() and int() there
 
 
@@ -180,6 +180,9 @@ class Vector:
             return math.copysign(math.inf, self.y)
         else:
             return math.nan
+
+    def __array__(self):
+        return np.array((*self,))
 
 
 class IntVec(Vector):

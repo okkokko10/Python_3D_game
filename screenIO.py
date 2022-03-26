@@ -521,8 +521,16 @@ class Inputs:
     "old name"
 
 
+class screenIO:
+    "this is so my IDE won't say the below typehints are wrong"
+    Updater: type[Updater]
+
+
+del screenIO
+
+
 class Scene:
-    def __call__(self, updater: 'Updater'):
+    def __call__(self, updater: 'screenIO.Updater'):
         'leave as is'
         self.o_Init(updater)
         return self.o_Update
@@ -530,14 +538,14 @@ class Scene:
     def __init__(self, *args, **kvargs):
         pass
 
-    def o_Init(self, updater: 'Updater'):
+    def o_Init(self, updater: 'screenIO.Updater'):
         'runs when updater starts playing'
         pass
 
-    def o_Update(self, updater: 'Updater'):
+    def o_Update(self, updater: 'screenIO.Updater'):
         'runs every frame'
         pass
 
-    def o_Quit(self, updater: 'Updater'):
+    def o_Quit(self, updater: 'screenIO.Updater'):
         'runs when quitting'
         pass
