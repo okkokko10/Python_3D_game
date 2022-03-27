@@ -17,7 +17,7 @@ class Scene_1(screenIO.Scene):
         self.board = np.zeros((*self.size, 3), float)
         "board[x,y,0] and board[x,y,1] is the velocity at x,y board[x,y,2] is the mass"
         updater.canvas.Fill((10, 20, 0))
-        self.brush_size = 60
+        self.brush_size = 30
 
         def func(x, y):
             return (x - self.brush_size / 2)**2 + (y - self.brush_size / 2)**2 < self.brush_size**2 / 4
@@ -34,35 +34,59 @@ class Scene_1(screenIO.Scene):
         self.movement_treshold %= self.movement_treshold_max
 
         def random_round(a: np.ndarray):
-            return np.copysign(np.fabs(a) > self.movement_treshold, a)
+            return np.round(np.random.rand(*a.shape) * a).astype(int)
+            # return np.copysign(np.fabs(a) > self.movement_treshold, a)
 
-            return np.copysign(np.fabs(a) * movement_chance > random.random(), a)
+            # return np.copysign(np.fabs(a) * movement_chance > random.random(), a)
 
             return np.copysign(np.fabs(a) * movement_chance > np.random.rand(*a.shape), a)
             return np.round(a).astype(int)
             return a.astype(int) + (a % 1 > np.random.rand(*a.shape))
         if updater.inputs.Up("mouse left"):
             start_mass = 1
+            start_motion = 1
             mx, my = np.round(mouse_position - self.brush_size / 2).astype(int)
             self.board[mx:mx + self.brush_size, my:my + self.brush_size] += 1 * \
-                np.append(mouse_movement, start_mass)[np.newaxis, np.newaxis, :] * self.brush[:, :, np.newaxis]
+                np.append(mouse_movement * start_motion, start_mass)[np.newaxis, np.newaxis, :] * self.brush[:, :, np.newaxis]
+        if updater.inputs.Pressed("mouse middle"):
+            start_mass = 1
+            start_motion = 0
+            mx, my = np.round(mouse_position - self.brush_size / 2).astype(int)
+            self.board[mx:mx + self.brush_size, my:my + self.brush_size] += 1 * \
+                np.append(mouse_movement * start_motion, start_mass)[np.newaxis, np.newaxis, :] * self.brush[:, :, np.newaxis]
         if updater.inputs.Up("mouse right"):
             start_mass = 1
             self.board[:, :] += np.append(mouse_movement, start_mass)
 
+        def complex_mul(ax, ay, bx, by):
+            return ax * bx - ay * by, ax * by + ay * bx
+
+        def random_round_2d(a: np.ndarray, b: np.ndarray):
+            sx, sy = complex_mul(np.random.rand(*a.shape), np.random.rand(*a.shape), 0.5, -0.5)
+            oa, ob = complex_mul(a, b, sx, sy)
+            return np.round(oa).astype(int), np.round(ob).astype(int)
+
         addboard: np.ndarray = np.zeros((*self.size, 3), float)
         ind = np.indices(self.size)  # .transpose(1, 2, 0)
         # addboard[(self.board[:, :].astype(int) + np.indices(self.size).transpose(1, 2, 0)) % self.size] = 1
-        toind = ((ind[0] + random_round(self.board[ind[0], ind[1], 0] / self.board[ind[0], ind[1], 2])).astype(int) % self.size[0],
-                 (ind[1] + random_round(self.board[ind[0], ind[1], 1] / self.board[ind[0], ind[1], 2])).astype(int) % self.size[1])
-        bo = self.board[ind[0], ind[1]]
+        # toind = ((ind[0] + random_round(self.board[ind[0], ind[1], 0] / self.board[ind[0], ind[1], 2])).astype(int) % self.size[0],
+        #          (ind[1] + random_round(self.board[ind[0], ind[1], 1] / self.board[ind[0], ind[1], 2])).astype(int) % self.size[1])
+        # bo = self.board[ind[0], ind[1]]
+        # uu = 10
+        # a1, b1 = random_round_2d(self.board[:, :, 0] * uu / (self.board[:, :, 2] + uu), self.board[:, :, 1] * uu / (self.board[:, :, 2] + uu))
+        a1, b1 = random_round_2d(self.board[:, :, 0] / self.board[:, :, 2], self.board[:, :, 1] / self.board[:, :, 2])
+        toind = ((ind[0, :, :] + a1).astype(int) % self.size[0],
+                 (ind[1, :, :] + b1).astype(int) % self.size[1])
+        bo = self.board[:, :]
         # bo[:, :, 0] /= bo[:, :, 2]
         # bo[:, :, 1] /= bo[:, :, 2]
 
         # bo /= np.linalg.norm(bo, axis=0)
         np.nan_to_num(bo, copy=False)
         np.add.at(addboard, toind, bo)
-        self.board[...] = addboard[...]
+        change_ratio = 0.5
+        self.board[...] += addboard[...] * change_ratio
+        self.board[...] /= 1 + change_ratio
 
         def sigmoid(a: np.ndarray):
             return 1.0 / (1.0 + np.exp(-a))
@@ -82,6 +106,7 @@ class Scene_1(screenIO.Scene):
 
         # updater.canvas.Blit(surface)
         pygame.transform.scale(surface, updater.canvas.surface.get_size(), updater.canvas.surface)
+        # print(updater.deltaTime)
 
 
 if __name__ == "__main__":
