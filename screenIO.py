@@ -36,6 +36,7 @@ class Updater:
     _clock: 'pygame.time.Clock' = None
     _running: 'bool' = None
     deltaTime: 'int' = None
+    screenshotter: 'Screenshotter' = None
 
     def __init__(self, scene: 'Scene|None' = None, canvas: 'Canvas|bool' = True, inputs: 'Inputs|bool' = True, framerate: 'int' = DEFAULT_FRAMERATE):
         """setting canvas and inputs to True uses the default, and False disables them.\n
@@ -50,6 +51,7 @@ class Updater:
         self.SetFramerate(framerate or DEFAULT_FRAMERATE)
         if scene:
             self.scene = scene
+        self.screenshotter = Screenshotter()
         self._init()
 
     def Play(self):
@@ -68,6 +70,7 @@ class Updater:
                 self.scene.o_Update(self)
 
             pygame.display.update()
+            self.screenshotter.update(self)
         if self.scene:
             self.scene.o_Quit(self)
         if self.canvas and self.canvas.surface is pygame.display.get_surface():
@@ -549,3 +552,26 @@ class Scene:
     def o_Quit(self, updater: 'screenIO.Updater'):
         'runs when quitting'
         pass
+
+
+class Screenshotter:
+    def __init__(self, key="return"):
+        self.key = key
+
+    def update(self, updater: Updater):
+        if updater.inputs.Down(self.key):
+            self.take(updater)
+
+    def take(self, updater: Updater):
+        try:
+            if not pygame.scrap.get_init():
+                pygame.scrap.init()
+        except pygame.error:
+            print("screenshot failed: can't initialize clipboard")
+        else:
+            imagename = "ignore_saved_image.bmp"
+            pygame.image.save(pygame.display.get_surface(), imagename)
+            with open(imagename, "rb") as fp:
+                pygame.scrap.put(pygame.SCRAP_BMP, fp.read())
+
+            # bytes(pygame.image.tostring(pygame.display.get_surface(), "RGB")))
