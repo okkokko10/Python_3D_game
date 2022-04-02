@@ -38,7 +38,7 @@ def color_map(a: np.ndarray):
     return 1.0 - 1.0 / (np.fabs(a) + 1.0)
 
 
-def random_round_2d(a: np.ndarray, b: np.ndarray):
+def random_spread(a: np.ndarray, b: np.ndarray):
     "mean should be 1"
     # ra, rb = random.random(), random.random()
     ra, rb = np.random.rand(*a.shape), np.random.rand(*a.shape)
@@ -54,6 +54,7 @@ def random_round_2d(a: np.ndarray, b: np.ndarray):
     # sy = sy * w
     w = 1
     oa, ob = complex_mul(a, b, sx * w + (1 - w), sy)
+    return oa, ob
     return np.round(oa).astype(int), np.round(ob).astype(int)
 
 
@@ -67,15 +68,17 @@ class WaveGrid:
         self.addboard: np.ndarray = np.zeros((3, *self.size), float)
         self.ind = np.indices(self.size)
         self.intensity = 16
-        self.stickiness = 0.5
+        self.stickiness = 0
 
     def next_frame(self):
 
         self.addboard[...] = 0
-        a1, b1 = random_round_2d(self.grid[0, :, :] / self.grid[2, :, :], self.grid[1, :, :] / self.grid[2, :, :])
+        a1, b1 = random_spread(self.grid[0, :, :] / self.grid[2, :, :], self.grid[1, :, :] / self.grid[2, :, :])
         # toind = ((self.ind[:, :, :] + np.stack((a1, b1), 0)).astype(int) % np.array(self.size)[:, np.newaxis, np.newaxis])
-        toind = ((self.ind[0, :, :] + a1).astype(int) % self.size[0],
-                 (self.ind[1, :, :] + b1).astype(int) % self.size[1])
+        toind = ((self.ind[0, :, :] + np.round(a1).astype(int)) % self.size[0],
+                 (self.ind[1, :, :] + np.round(b1).astype(int)) % self.size[1])
+        a1 = np.round(a1).astype(int)
+        b1 = np.round(b1).astype(int)
 
         # bo /= np.linalg.norm(bo, axis=0)
         # np.nan_to_num(bo, copy=False)
@@ -132,6 +135,7 @@ class Scene_1(screenIO.Scene):
             return 10 / ((a) + 1) * (a < self.brush_size**2 / 4)
         self.brush = np.fromfunction(func, (self.brush_size, self.brush_size))
         self.render_text = renderText.RenderText(15)
+        self.show_settings = True
 
     def o_Update(self, updater: 'screenIO.Updater'):
         mouse_position = np.array(updater.inputs.get_mouse_position())
@@ -146,48 +150,56 @@ class Scene_1(screenIO.Scene):
         # print(mouse_position, mouse_movement)
 
         def get_brush():
-            if updater.inputs.Pressed("q"):
+            if updater.inputs.Pressed("e"):
                 return self.brush != 0
             else:
                 return self.brush
 
         try:
+            multiplier_motion = 5 if updater.inputs.Pressed("a") else 1
+            multiplier_mass = 5 if updater.inputs.Pressed("q") else 1
             if updater.inputs.Down("t"):
                 self.waves.gridT[...] = 0
             if updater.inputs.Down("y"):
                 self.waves.gridT[..., 0:2] = 0
             if updater.inputs.Up("r"):
-                start_mass = 1
-                self.waves.gridT[:, :] += np.append(mouse_movement, start_mass)
+                start_mass = multiplier_mass
+                self.waves.gridT[:, :] += np.append(mouse_movement * multiplier_motion, start_mass)
             if updater.inputs.Up("mouse left") or updater.inputs.Pressed("d"):
-                start_mass = 1
-                start_motion = 1
-                if updater.inputs.Pressed("a"):
-                    start_motion *= 5
+                start_mass = multiplier_mass
+                start_motion = multiplier_motion
                 mx, my = np.round(mouse_position - self.brush_size / 2).astype(int)
                 self.waves.gridT[mx:mx + self.brush_size, my:my + self.brush_size] += 1 * \
                     np.append(mouse_movement * start_motion, start_mass)[np.newaxis, np.newaxis, :] * get_brush()[:, :, np.newaxis]
             if updater.inputs.Pressed("f"):
-                start_mass = 1
+                start_mass = multiplier_mass
                 start_motion = 0
                 mx, my = np.round(mouse_position - self.brush_size / 2).astype(int)
                 self.waves.grid[:, mx:mx + self.brush_size, my:my + self.brush_size] += 1 * \
                     np.append(mouse_movement * start_motion, start_mass)[:, np.newaxis, np.newaxis] * get_brush()[np.newaxis, :, :]
             if updater.inputs.Pressed("s") or updater.inputs.Down("x"):
-                start_mass = 10
-                start_motion = 10
-                if updater.inputs.Pressed("a"):
-                    start_motion *= 5
+                start_mass = 10 * multiplier_mass
+                start_motion = 10 * multiplier_motion
                 # for mpos in updater.inputs.get_mouse_path():
                 #     mx, my = np.round(np.array(mpos) / size * self.waves.size).astype(int)
                 mx, my = np.round(mouse_position).astype(int)
                 self.waves.grid[:, mx, my] += np.append(mouse_movement * start_motion, start_mass)
             if updater.inputs.Pressed("g"):
                 # delete
-                start_mass = 10
+                start_mass = 10 * multiplier_mass
                 mx, my = np.round(mouse_position - self.brush_size / 2).astype(int)
                 self.waves.gridT[mx:mx + self.brush_size, my:my + self.brush_size] *= \
                     1 / (1 + start_mass * np.array([1, 1, 1])[np.newaxis, np.newaxis, :] * get_brush()[:, :, np.newaxis])
+            if updater.inputs.Pressed("c"):
+                start_mass = 10 * multiplier_mass
+                start_motion = 50 * multiplier_motion
+                mx, my = np.round(mouse_position).astype(int)
+                self.waves.grid[:, mx, my] = np.array([2 * (random.random() - 0.5) * start_motion, 2 * (random.random() - 0.5) * start_motion, start_mass])
+            if updater.inputs.Pressed("v"):
+                start_mass = 5 * multiplier_mass
+                start_motion = 20 * multiplier_motion
+                mx, my = random.randrange(0, self.waves.size[0]), random.randrange(0, self.waves.size[1])
+                self.waves.grid[:, mx, my] = np.array([2 * (random.random() - 0.5) * start_motion, 2 * (random.random() - 0.5) * start_motion, start_mass])
 
         except ValueError:
             pass
@@ -210,12 +222,15 @@ class Scene_1(screenIO.Scene):
              f"stickiness: {self.waves.stickiness}",
              f"change ratio: {self.waves.change_ratio}",
              ])
-        updater.canvas.Blit(text)
+        if self.show_settings:
+            updater.canvas.Blit(text)
+        if updater.inputs.Down("escape"):
+            self.show_settings ^= True
         spot = updater.inputs.get_mouse_position()[0] / updater.canvas.surface.get_width()
         if updater.inputs.Pressed("1"):
             self.waves.intensity = spot**2 * 25
         if updater.inputs.Pressed("2"):
-            self.waves.stickiness = spot * 4
+            self.waves.stickiness = spot * 4 - 1
         if updater.inputs.Pressed("3"):
             self.waves.change_ratio = spot
 
