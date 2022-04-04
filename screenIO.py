@@ -148,7 +148,7 @@ class Canvas:
         self.surface = surface if isinstance(surface, pygame.Surface) else pygame.Surface(tuple(surface))
         self.height = self.surface.get_height()
         self.width = self.surface.get_width()
-        self.zoom = self.height
+        self.zoom = 1
         self.ratio = self.width / self.height
         # self.default_font = pygame.font.Font(None, 20)
 
@@ -286,6 +286,10 @@ class Canvas:
 
 
 class CanvasZoom(Canvas):
+    def __init__(self, surface: pygame.Surface | Vector):
+        super().__init__(surface)
+        self.zoom = self.height
+
     def convert(self, pos):
         return (int(pos[0] * self.zoom) + self.width // 2, -int(pos[1] * self.zoom) + self.height // 2)
 
