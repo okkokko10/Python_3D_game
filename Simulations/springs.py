@@ -164,7 +164,7 @@ class Rigid_Stick(Connection):
         self.pB = particle_b
         self.length = equilibrium_length
 
-    def update(self, deltaTime: float):
+    def update(self, deltaTime: qu.Time[float]):
         pos_dif = self.pA.position - self.pB.position
         velocity_dif = self.pA.velocity - self.pB.velocity
         l: qu.Length[float] = qu_vector_length(pos_dif)
