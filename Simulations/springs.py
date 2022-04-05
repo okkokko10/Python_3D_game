@@ -2,15 +2,50 @@ import itertools
 import math
 import os
 import sys
+from typing import Type, TypeVar, overload
 
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import screenIO
+import quantities as qu
 
 
 class Vector(np.ndarray):
     def __new__(cls, *args):
         return np.array(args, dtype=float)
+
+
+_Q = TypeVar("_Q", bound=qu.Quantity)
+_Q1 = TypeVar("_Q1", bound=qu.Quantity)
+
+
+@overload
+def qu_vector_length(vector: _Q) -> _Q: ...
+
+
+def qu_vector_length(vector: qu.Quantity[Vector]) -> qu.Quantity[float]:
+    return qu.cast(np.linalg.norm(qu.get_value(vector)), vector)
+    # return vector.cast(np.linalg.norm(vector.value))
+
+
+def qu_vector_dot(a: qu.Quantity[Vector], b: qu.Quantity[Vector]) -> qu.times[qu.Quantity, qu.Quantity, float]:
+    "output has dimensions of a*b"
+    c: float = np.dot(qu.get_value(a), qu.get_value(b))
+    return qu.cast(c, a * b)
+    # return (a * b).cast(c)
+
+
+@overload
+def qu_vector_project(a: _Q, b: qu.Quantity[Vector]) -> _Q: ...
+
+
+def qu_vector_project(a: qu.Quantity[Vector], b: qu.Quantity[Vector]) -> qu.Quantity[Vector]:
+    "projects a onto b. the qd (quantity dimensions) of b do not matter. has the same qd as a"
+    l = qu_vector_length(b)**2
+    if l:
+        return b * (qu_vector_dot(a, b) / l)  # dimensions a
+    else:
+        return a * 0
 
 
 def vector_length(vector: Vector):
@@ -40,34 +75,37 @@ def vector_project(a: Vector, b: Vector):
 
 
 class Inertia_Object:
-    def __init__(self, position: Vector, mass: float, momentum: Vector) -> None:
+    position: qu.Length[Vector]
+    mass: qu.Mass[float]
+    velocity: qu.Speed[Vector]
+
+    def __init__(self, position: qu.Length[Vector], mass: qu.Mass[float], velocity: qu.Speed[Vector]) -> None:
+        if qu.CHECK:
+            assert all(isinstance(a, qu.Quantity) for a in (position, mass, velocity))
         self.position = position
         self.mass = mass
-        self.momentum = momentum
+        self.velocity = velocity
+        # self.momentum = momentum
         "mass * velocity"
 
-    def add_force(self, force: Vector) -> None: self.momentum += force
-    def get_mass(self) -> float: return self.mass
-    def get_momentum(self) -> Vector: return self.momentum
-    def get_velocity(self) -> Vector: return self.momentum / self.mass
-    def get_position(self) -> Vector: return self.position
+    def add_momentum(self, momentum: qu.Momentum[Vector]) -> None: self.velocity += momentum / self.mass
 
     @property
-    def velocity(self) -> Vector:
-        return self.momentum / self.mass
+    def momentum(self) -> qu.Momentum[Vector]:
+        return self.mass * self.velocity
 
-    @velocity.setter
-    def velocity(self, value: Vector):
-        self.momentum = self.mass * value
+    @momentum.setter
+    def momentum(self, value: qu.Momentum[Vector]):
+        self.velocity = value / self.mass
 
-    def update(self, deltaTime: float) -> None:
-        self.position += self.get_velocity() * deltaTime
+    def update(self, deltaTime: qu.Time[float]) -> None:
+        self.position += self.velocity * deltaTime
 
     def draw(self, canvas: screenIO.Canvas) -> None: ...
 
 
 class Connection:
-    def update(self, deltaTime: float) -> None: ...
+    def update(self, deltaTime: qu.Time[float]) -> None: ...
     def draw(self, canvas: screenIO.Canvas) -> None: ...
 
 
@@ -95,49 +133,52 @@ class World:
 
 class Particle(Inertia_Object):
     def draw(self, canvas: screenIO.Canvas) -> None:
-        canvas.Circle(self.position, self.mass**0.5, (255, 255, 255))
+        canvas.Circle(qu.get_value(self.position), qu.get_value(self.mass)**0.5, (255, 255, 255))
     pass
 
 
 class Spring(Connection):
-    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: float, spring_constant: float):
+    k: qu.over[qu.Force, qu.Length, float]
+
+    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: qu.Length[float], spring_constant: qu.over[qu.Force, qu.Length, float]):
         self.pA = particle_a
         self.pB = particle_b
         self.length = equilibrium_length
         self.k = spring_constant
 
-    def update(self, deltaTime: float):
+    def update(self, deltaTime: qu.Time[float]):
         pos_dif = self.pA.position - self.pB.position
-        l = vector_length(pos_dif)
-        force = (self.length - l) * self.k * deltaTime / l * pos_dif
-        self.pA.add_force(force)
-        self.pB.add_force(-force)
+        l: qu.Length[float] = qu_vector_length(pos_dif)
+        momentum: qu.Momentum[Vector] = (self.length - l) * self.k / l * pos_dif * deltaTime
+
+        self.pA.add_momentum(momentum)
+        self.pB.add_momentum(-momentum)
 
     def draw(self, canvas: screenIO.Canvas) -> None:
-        canvas.Line(self.pA.position, self.pB.position, 1, (255, 255, 255))
+        canvas.Line(qu.get_value(self.pA.position), qu.get_value(self.pB.position), 1, (255, 255, 255))
 
 
 class Rigid_Stick(Connection):
-    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: float):
+    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: qu.Length[float]):
         self.pA = particle_a
         self.pB = particle_b
         self.length = equilibrium_length
 
     def update(self, deltaTime: float):
         pos_dif = self.pA.position - self.pB.position
-        velocity_dif = self.pA.velocity - self.pB.velocity  # this could be incorrect
-        l = vector_length(pos_dif)
-        pos_change = (self.length - l) / l * pos_dif
-        momentum_change = vector_project(velocity_dif, pos_dif)
+        velocity_dif = self.pA.velocity - self.pB.velocity
+        l: qu.Length[float] = qu_vector_length(pos_dif)
+        pos_change: qu.Length[Vector] = (self.length - l) / l * pos_dif
+        velocity_change = qu_vector_project(velocity_dif, pos_dif)
         # because the difference in momentum in the direction of the difference in position should be 0,
         # the change in position in that direction doesn't need to be changed from potential to kinetic energy
         self.pA.position += pos_change * (self.pB.mass / (self.pA.mass + self.pB.mass))
         self.pB.position += -pos_change * (self.pA.mass / (self.pA.mass + self.pB.mass))
-        self.pA.momentum += -momentum_change / 2
-        self.pB.momentum += momentum_change / 2
+        self.pA.velocity += -velocity_change / 2
+        self.pB.velocity += velocity_change / 2
 
     def draw(self, canvas: screenIO.Canvas) -> None:
-        canvas.Line(self.pA.position, self.pB.position, 1, (255, 255, 0))
+        canvas.Line(qu.get_value(self.pA.position), qu.get_value(self.pB.position), 1, (255, 255, 0))
 
 
 class RigidBody_Connection(Connection):
@@ -182,48 +223,48 @@ class Body:
 class Scene_demo_wheel(screenIO.Scene):
     def o_Init(self, updater: 'screenIO.Updater'):
         self.world = World()
-        center = Vector(400, 400)
+        center = qu.Length(Vector(400, 400))
         a = None
         b = None
         c = None
-        self.center = Particle(center, 1, Vector(0, 0))
+        self.center = Particle(center, qu.Mass(1), qu.Speed(Vector(0, 0)))
         self.world.objects.add(self.center)
         particles: list[Particle] = []
         amount = 120
-        distance = 200
+        distance: qu.Length[float] = qu.Length(200)
 
-        def connect(a, b):
-            self.world.connections.add(Rigid_Stick(a, b, vector_length(a.position - b.position)))
+        def connect(a: Inertia_Object, b: Inertia_Object):
+            self.world.connections.add(Rigid_Stick(a, b, qu_vector_length(a.position - b.position)))
 
         for i in range(amount):
-            a = Particle(center + vector_from_angle(i * 360 / amount) * distance, 1, Vector(0, 0))
+            a = Particle(center + distance * vector_from_angle(i * 360 / amount), qu.Mass(1), qu.Speed(Vector(0, 0)))
             particles.append(a)
             self.world.objects.add(a)
         for i in range(amount):
             # connect(particles[i], self.center)
             for j in itertools.chain(range(1, 4), (20, 30, 40)):
                 connect(particles[i], particles[i - j])
-            particles[i].add_force(Vector(10, 0))
-        particles[0].mass = 1
+            particles[i].add_momentum(qu.Momentum(Vector(10, 0)))
+        # particles[0].mass = 1
         # self.offcenter = Particle(center + Vector(distance * 2, 0), 1, Vector(0, 0))
         # a, b = particles[0], self.offcenter
         # connect(a, b)
 
         # connect(self.center, self.offcenter)
-        a = Particle(Vector(800, 400), 20, Vector(0, 0))
-        b = Particle(Vector(800, 450), 1, Vector(0, 0))
+        a = Particle(qu.Length(Vector(800, 400)), qu.Mass(20), qu.Speed(Vector(0, 0)))
+        b = Particle(qu.Length(Vector(800, 450)), qu.Mass(1), qu.Speed(Vector(0, 0)))
         self.world.objects.update((a, b))
         connect(a, b)
 
     def o_Update(self, updater: 'screenIO.Updater'):
-        deltaTime = 0.1
+        deltaTime = qu.Time(0.1)
         for obj in self.world.objects:
-            obj.add_force(Vector(0, deltaTime * obj.mass))
-            if obj.position[1] > 600:
+            obj.add_momentum(deltaTime * obj.mass * qu.Acceleration(Vector(0, 1)))
+            if qu.get_value(obj.position)[1] > 600:
                 # obj.add_force(Vector(-deltaTime * obj.momentum[0], 0 * deltaTime * obj.mass))
-                obj.momentum[0] = 0
-                obj.momentum[1] = -abs(obj.momentum[1])
-                obj.position[1] = 2 * 600 - obj.position[1]
+                qu.get_value(obj.velocity)[0] = 0
+                qu.get_value(obj.velocity)[1] = -abs(qu.get_value(obj.velocity)[1])
+                qu.get_value(obj.position)[1] = 2 * 600 - qu.get_value(obj.position)[1]
         self.world.update(deltaTime)
 
         updater.canvas.Fill((0, 0, 0))
