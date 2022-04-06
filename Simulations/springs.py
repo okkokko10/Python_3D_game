@@ -28,7 +28,7 @@ def qu_vector_length(vector: qu.Quantity[Vector]) -> qu.Quantity[float]:
     # return vector.cast(np.linalg.norm(vector.value))
 
 
-def qu_vector_dot(a: qu.Quantity[Vector], b: qu.Quantity[Vector]) -> qu.times[qu.Quantity, qu.Quantity, float]:
+def qu_vector_dot(a: qu.Quantity[Vector], b: qu.Quantity[Vector]):
     "output has dimensions of a*b"
     c: float = np.dot(qu.get_value(a), qu.get_value(b))
     return qu.cast(c, a * b)
@@ -138,9 +138,9 @@ class Particle(Inertia_Object):
 
 
 class Spring(Connection):
-    k: qu.over[qu.Force, qu.Length, float]
+    k: qu.times[qu.Force, qu.inverse[qu.Length]]
 
-    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: qu.Length[float], spring_constant: qu.over[qu.Force, qu.Length, float]):
+    def __init__(self, particle_a: Inertia_Object, particle_b: Inertia_Object, equilibrium_length: qu.Length[float], spring_constant: qu.times[qu.Force, qu.inverse[qu.Length]]):
         self.pA = particle_a
         self.pB = particle_b
         self.length = equilibrium_length
@@ -174,8 +174,8 @@ class Rigid_Stick(Connection):
         # the change in position in that direction doesn't need to be changed from potential to kinetic energy
         self.pA.position += pos_change * (self.pB.mass / (self.pA.mass + self.pB.mass))
         self.pB.position += -pos_change * (self.pA.mass / (self.pA.mass + self.pB.mass))
-        self.pA.velocity += -velocity_change / 2
-        self.pB.velocity += velocity_change / 2
+        self.pA.velocity += -velocity_change * (self.pA.mass / (self.pA.mass + self.pB.mass))  # is this right?
+        self.pB.velocity += velocity_change * (self.pB.mass / (self.pA.mass + self.pB.mass))
 
     def draw(self, canvas: screenIO.Canvas) -> None:
         canvas.Line(qu.get_value(self.pA.position), qu.get_value(self.pB.position), 1, (255, 255, 0))

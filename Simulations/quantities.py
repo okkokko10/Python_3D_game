@@ -31,32 +31,35 @@ class Quantity(namedtuple("Quantity", "value mass length time", defaults=(1., 0,
 
     # def __init__(self, value=1, mass=0, length=0, time=0):...
     @overload
-    def __mul__(self, other: "Unitless") -> "Self": ...
+    def __mul__(self: "_Q1", other: "Unitless") -> "_Q1": ...
     @overload
     def __mul__(self: "Unitless", other: "_Q1") -> "_Q1": ...
     @overload
-    def __mul__(self: "over[_Q1,_Q2]", other: "_Q2") -> "_Q1": ...
+    def __mul__(self: "inverse[_Q1]", other: "_Q1") -> "Unitless": ...
+    @overload
+    def __mul__(self: "_Q1", other: "inverse[_Q1]") -> "Unitless": ...
+
+    @overload
+    def __mul__(self: "times[_Q1,_Q2]", other: "inverse[_Q1]") -> "_Q2": ...
+    @overload
+    def __mul__(self: "times[_Q1,_Q2]", other: "inverse[_Q2]") -> "_Q1": ...
+    @overload
+    def __mul__(self: "inverse[_Q1]", other: "times[_Q1,_Q2]") -> "_Q2": ...
+    @overload
+    def __mul__(self: "inverse[_Q2]", other: "times[_Q1,_Q2]") -> "_Q1": ...
 
     # @overload
-    # def __mul__(self: "times[_Q1,_Q2]", other: "_Q3"):
-    #     return self.first * self.second * other
+    # def __mul__(self: "times[_Q3,times[_Q1,_Q2]]", other: "_Q4"):
+    #     return _times(self.first, self.second * other)
 
     @overload
-    def __mul__(self: "over[_Q1,_Q2]", other: "_Q3"):
-        return self.first * other / self.second
-
-    # @overload
-    # def __mul__(self: "over[_Q1,_Q2]", other: "_Q3") -> "over[times[_Q1,_Q3],_Q2]": ...
-    @overload
-    def __mul__(self: "_Q2", other: "over[_Q1,_Q2]") -> "_Q1": ...
+    def __mul__(self: "times[_Q2,_Q3]", other: "_Q1"):
+        return self.first * (self.second * other)
 
     @overload
-    def __mul__(self: "_Q3", other: "over[_Q1,_Q2]"):
-        return self * other.first / other.second
-    # @overload
-    # def __mul__(self: "_Q3", other: "over[_Q1,_Q2]") -> "over[times[_Q3,_Q1],_Q2]": ...
+    def __mul__(self: "_Q1", other: "_Q2") -> "times[_Q1,_Q2]": ...
     @overload
-    def __mul__(self, other: "_Q1") -> "times[Self,_Q1]": ...
+    def __mul__(self, other: "TypeError") -> "TypeError": ...
     @overload
     def __mul__(self, other: "Any") -> "Self": ...
 
@@ -71,23 +74,21 @@ class Quantity(namedtuple("Quantity", "value mass length time", defaults=(1., 0,
 
     # @overload
     # def __truediv__(self: "Length", other: "Time") -> "Speed": ...
+    # @overload
+    # def __truediv__(self: "_Q1", other: "_Q1") -> "Unitless": ...
     @overload
-    def __truediv__(self: Self, other: Self) -> "Unitless": ...
-    @overload
-    def __truediv__(self: Self, other: "Unitless") -> "Self": ...
+    def __truediv__(self: "_Q1", other: "Unitless") -> "_Q1": ...
     @overload
     def __truediv__(self: "times[_Q1,_Q2]", other: "_Q2") -> "_Q1": ...
     @overload
     def __truediv__(self: "times[_Q1,_Q2]", other: "_Q1") -> "_Q2": ...
 
     @overload
-    def __truediv__(self: "_Q1", other: "over[_Q2,_Q3]"):
-        return self * other.second / other.first
+    def __truediv__(self: "_Q1", other: "_Q2"):
+        return self * other.inverse()
 
     @overload
-    def __truediv__(self, other: "_Q1") -> "over[Self,_Q1]": ...
-    @overload
-    def __truediv__(self, other: "Any") -> "Self": ...
+    def __truediv__(self: "_Q1", other: "Any") -> "_Q1": ...
 
     def __truediv__(self, other):
         if isinstance(other, Quantity):
@@ -193,11 +194,16 @@ class Quantity(namedtuple("Quantity", "value mass length time", defaults=(1., 0,
         # typehint is meant to say -> Self[_V1]
         return self._replace(value=value)
 
+    def inverse(self: "_Q1") -> "inverse[_Q1]":
+        "for type checking."
+        ...
+
 
 _Q = TypeVar("_Q", bound=Quantity)
 _Q1 = TypeVar("_Q1", bound=Quantity)
 _Q2 = TypeVar("_Q2", bound=Quantity)
 _Q3 = TypeVar("_Q3", bound=Quantity)
+_Q4 = TypeVar("_Q4", bound=Quantity)
 
 CHECK: Final[bool] = False
 if CHECK or TYPE_CHECKING:
@@ -220,17 +226,27 @@ else:
         return value
 
 
-class over(Quantity, Generic[_Q1, _Q2, _V]):
+class times(Quantity, Generic[_Q1, _Q2]):
     first: _Q1
     second: _Q2
-    ...
+
+    def inverse(self):
+        return _times(self.first.inverse(), self.second.inverse())
 
 
-class times(Quantity, Generic[_Q1, _Q2, _V]):
-    first: _Q1
-    second: _Q2
-    ...
+def _times(a: _Q1, b: _Q2) -> times[_Q1, _Q2]: ...
 
+
+class inverse(Quantity, Generic[_Q1]):
+    reciprocal: _Q1
+
+    def inverse(self):
+        "for type checking."
+        return self.reciprocal
+
+
+def invert(q: _Q1):
+    return q.inverse()
 
 # Mass = Quantity(mass=1)
 
@@ -275,6 +291,8 @@ class Unitless(Quantity[_V]):
 
     def __new__(cls, value: _V = 1.):
         return super().__new__(cls, value)
+
+    def inverse(self: _Q1) -> _Q1: ...
 
 
 class Speed(Quantity[_V]):
@@ -337,6 +355,15 @@ class Momentum(Quantity[_V]):
         return super().__new__(cls, value, mass=1, length=1, time=-1)
 
 
-# a = Length() * Mass() / Time() / Mass()
-# b = Length() * Mass() * Time()
-# c = Length() * Mass() / Length()
+if __name__ == "__main__":
+    a = Length() * Mass() / Time() / Mass()
+    c = Length() * Mass()  # 1 2
+    c = Length() * Mass() * Time()  # 1 2 3
+    c = Length() * Mass() * Time() * Power()  # 1 2 4 3
+    c = Length() * Mass() * Time() * Power() * Speed()  # 1 2 4 5 3
+    c = Length() * Mass() * Time() * Power() * Length().inverse()
+    c = Length() * Mass() * Time() * Power() / Length()  # this should be identical to the one above, but it isn't.
+    c = Length() * Mass() / Length()
+    d = Length() * Mass() * Time() * Power()
+    e = d / Mass()
+    e = d * Mass().inverse()
