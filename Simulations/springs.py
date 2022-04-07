@@ -2,17 +2,23 @@ import itertools
 import math
 import os
 import sys
-from typing import Type, TypeVar, overload
+from typing import Iterable, Type, TypeVar, overload
 
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import screenIO
 import quantities as qu
 
+# TODO: ability to see how much a body resists a momentum vector at a location
+
 
 class Vector(np.ndarray):
-    def __new__(cls, *args):
+    def __new__(cls, *args) -> "Vector":
         return np.array(args, dtype=float)
+
+    @staticmethod
+    def zero():
+        return Vector(0, 0, 0)
 
 
 _Q = TypeVar("_Q", bound=qu.Quantity)
@@ -86,12 +92,12 @@ class Inertia_Object:
         self.mass = mass
         self.velocity = velocity
         # self.momentum = momentum
-        "mass * velocity"
 
     def add_momentum(self, momentum: qu.Momentum[Vector]) -> None: self.velocity += momentum / self.mass
 
     @property
     def momentum(self) -> qu.Momentum[Vector]:
+        "mass * velocity"
         return self.mass * self.velocity
 
     @momentum.setter
@@ -172,10 +178,16 @@ class Rigid_Stick(Connection):
         velocity_change = qu_vector_project(velocity_dif, pos_dif)
         # because the difference in momentum in the direction of the difference in position should be 0,
         # the change in position in that direction doesn't need to be changed from potential to kinetic energy
+        # perfectly inelastic collision (v is the resulting shared velocity): m1 * v1 + m2 * v2 = (m1 + m2) * v
+        # v = (self.pA.mass * velocity_change + self.pB.mass * velocity_change * 0) / (self.pA.mass + self.pB.mass)
         self.pA.position += pos_change * (self.pB.mass / (self.pA.mass + self.pB.mass))
         self.pB.position += -pos_change * (self.pA.mass / (self.pA.mass + self.pB.mass))
-        self.pA.velocity += -velocity_change * (self.pA.mass / (self.pA.mass + self.pB.mass))  # is this right?
-        self.pB.velocity += velocity_change * (self.pB.mass / (self.pA.mass + self.pB.mass))
+        self.pA.velocity += -velocity_change * (self.pB.mass / (self.pA.mass + self.pB.mass))  # is this right?
+        self.pB.velocity += velocity_change * (self.pA.mass / (self.pA.mass + self.pB.mass))
+        # self.pA.velocity * self.pA.mass + self.pB.velocity * self.pB.mass == \
+        #     self.pA.velocity * self.pA.mass + self.pB.velocity * self.pB.mass \
+        #     - velocity_change * (self.pB.mass / (self.pA.mass + self.pB.mass)) * self.pA.mass \
+        #     + velocity_change * (self.pA.mass / (self.pA.mass + self.pB.mass)) * self.pB.mass
 
     def draw(self, canvas: screenIO.Canvas) -> None:
         canvas.Line(qu.get_value(self.pA.position), qu.get_value(self.pB.position), 1, (255, 255, 0))
@@ -216,8 +228,41 @@ class Torque:
 
 
 class Body:
-    mass: float
-    center_of_mass: Vector
+    mass: qu.Mass[float]
+    momentum: qu.Momentum[Vector]
+    mass_position: qu.times[qu.Mass[float], qu.Length[Vector]]
+    "mass times the center of mass"
+
+    @property
+    def center_of_mass(self) -> qu.Length[Vector]:
+        return self.mass_position / self.mass
+
+    @property
+    def velocity(self) -> qu.Speed[Vector]:
+        return self.momentum / self.mass
+
+
+class BodySystem(Body):
+    parts: Iterable[Body]
+
+    @property
+    def mass(self) -> qu.Mass[float]:
+        return sum((p.mass for p in self.parts)) if self.parts else qu.Mass(0.)
+
+    @property
+    def momentum(self) -> qu.Momentum[Vector]:
+        return sum((p.momentum for p in self.parts)) if self.parts else qu.Momentum(Vector.zero())
+
+    @property
+    def mass_position(self) -> qu.times[qu.Mass[float], qu.Length[Vector]]:
+        return sum((p.mass_position for p in self.parts)) if self.parts else qu.Mass(0.) * qu.Length(Vector.zero())
+
+    ...
+
+
+class Collision:
+    def __init__(self, a: Body, b: Body, hit_position: qu.Length[Vector], a_hit_velocity):
+        pass
 
 
 class Scene_demo_wheel(screenIO.Scene):
@@ -258,18 +303,24 @@ class Scene_demo_wheel(screenIO.Scene):
 
     def o_Update(self, updater: 'screenIO.Updater'):
         deltaTime = qu.Time(0.1)
+        ground_spring_constant = - qu.Force(50) / qu.Length(1)
         for obj in self.world.objects:
             obj.add_momentum(deltaTime * obj.mass * qu.Acceleration(Vector(0, 1)))
             if qu.get_value(obj.position)[1] > 600:
+                surface_position = qu.Length(Vector(qu.get_value(obj.position - obj.velocity * qu.Time(1))[0], 600))
                 # obj.add_force(Vector(-deltaTime * obj.momentum[0], 0 * deltaTime * obj.mass))
-                qu.get_value(obj.velocity)[0] = 0
-                qu.get_value(obj.velocity)[1] = -abs(qu.get_value(obj.velocity)[1])
-                qu.get_value(obj.position)[1] = 2 * 600 - qu.get_value(obj.position)[1]
+                # qu.get_value(obj.velocity)[0] = 0
+                obj.add_momentum((obj.position - surface_position) * ground_spring_constant * deltaTime)
+                # qu.get_value(obj.velocity)[1] = -abs(qu.get_value(obj.velocity)[1])
+                # obj.add_momentum(deltaTime * obj.mass * qu.Acceleration(Vector(0, -20)))
+                # qu.get_value(obj.position)[1] = 2 * 600 - qu.get_value(obj.position)[1]
         self.world.update(deltaTime)
 
         updater.canvas.Fill((0, 0, 0))
         self.world.draw(updater.canvas)
         updater.canvas.Line((0, 600), (updater.canvas.width, 600), 1, (0, 0, 255))
 
+
+qu.disable_CHECK()
 
 screenIO.Updater(Scene_demo_wheel()).Play()
