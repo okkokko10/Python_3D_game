@@ -54,6 +54,15 @@ def qu_vector_project(a: qu.Quantity[Vector], b: qu.Quantity[Vector]) -> qu.Quan
         return a * 0
 
 
+@overload
+def qu_cross_product(a: _Q, b: _Q1):
+    return a * b
+
+
+def qu_cross_product(a: qu.Quantity[Vector], b: qu.Quantity[Vector]) -> qu.Quantity[Vector]:
+    qu.cast(np.cross(qu.get_value(a), qu.get_value(b)), a * b)
+
+
 def vector_length(vector: Vector):
     return np.linalg.norm(vector)
 
@@ -241,6 +250,11 @@ class Body:
     def velocity(self) -> qu.Speed[Vector]:
         return self.momentum / self.mass
 
+    def angular_momentum_to(self, origin: qu.Length[Vector], origin_velocity: qu.Speed[Vector]) -> qu.times[qu.Length[Vector], qu.Momentum[Vector]]:
+        m = self.mass
+        return qu_cross_product(self.mass_position / m - origin, self.momentum - origin_velocity * m)
+        # return qu_cross_product(self.center_of_mass - origin, self.momentum - origin_velocity * self.mass)
+
 
 class BodySystem(Body):
     parts: Iterable[Body]
@@ -257,6 +271,15 @@ class BodySystem(Body):
     def mass_position(self) -> qu.times[qu.Mass[float], qu.Length[Vector]]:
         return sum((p.mass_position for p in self.parts)) if self.parts else qu.Mass(0.) * qu.Length(Vector.zero())
 
+    def angular_momentum_spin(self) -> qu.times[qu.Length[Vector], qu.Momentum[Vector]]:
+        if self.parts:
+            mass = self.mass
+            center = self.mass_position / mass
+            velocity = self.momentum / mass
+            return sum((p.angular_momentum_to(center, velocity) for p in self.parts))
+        else:
+            return qu.Length(0.) * qu.Momentum(Vector())
+        return sum((qu_cross_product(p.center_of_mass - self.center_of_mass, p.mass * (p.velocity - self.velocity)) for p in self.parts)) if self.parts else qu.Length(0.) * qu.Momentum(Vector())
     ...
 
 
@@ -297,13 +320,13 @@ class Scene_demo_wheel(screenIO.Scene):
 
         # connect(self.center, self.offcenter)
         a = Particle(qu.Length(Vector(800, 400)), qu.Mass(20), qu.Speed(Vector(0, 0)))
-        b = Particle(qu.Length(Vector(800, 450)), qu.Mass(1), qu.Speed(Vector(0, 0)))
+        b = Particle(qu.Length(Vector(801, 450)), qu.Mass(1), qu.Speed(Vector(0, 0)))
         self.world.objects.update((a, b))
         connect(a, b)
 
     def o_Update(self, updater: 'screenIO.Updater'):
         deltaTime = qu.Time(0.1)
-        ground_spring_constant = - qu.Force(50) / qu.Length(1)
+        ground_spring_constant = - qu.Force(5) / qu.Length(1)
         for obj in self.world.objects:
             obj.add_momentum(deltaTime * obj.mass * qu.Acceleration(Vector(0, 1)))
             if qu.get_value(obj.position)[1] > 600:
