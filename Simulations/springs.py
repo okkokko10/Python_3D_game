@@ -241,6 +241,7 @@ class Body:
     momentum: qu.Momentum[Vector]
     mass_position: qu.times[qu.Mass[float], qu.Length[Vector]]
     "mass times the center of mass"
+    angular_momentum_spin: qu.times[qu.Length[Vector], qu.Momentum[Vector]]
 
     @property
     def center_of_mass(self) -> qu.Length[Vector]:
