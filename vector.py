@@ -92,10 +92,10 @@ class Vector:
         return 'V({})'.format(' '.join(a.__str__() for a in self))
 
     def lengthSq(self) -> float:
-        return sum(k**2 for k in self)
+        return sum(k * k for k in self)
 
     def length(self) -> float: return math.sqrt(self.lengthSq())
-    def dotProduct(self, other: 'Vector') -> float: return sum(self * other)
+    def dotProduct(self, other: 'Vector') -> float: return sum(a * b for a, b in zip(self, other))
 
     def project(self, other: 'Vector') -> 'Vector':
         return self.dotProduct(other) / self.lengthSq() * self

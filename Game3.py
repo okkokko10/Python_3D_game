@@ -104,9 +104,9 @@ if __name__ == '__main__':
             markers2 = (v for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
 
             self.camera.Draw_Wireframe(canvas, corners, 5, (255, 0, 0))
-            corners_projected = self.camera.ProjectPoints(corners)
+            corners_projected = [p for p, d in self.camera.ProjectPoints(corners)]
             centers_projected = corners_projected[4:]
-            markers_projected = self.camera.ProjectPoints(markers)
+            markers_projected = [p for p, d in self.camera.ProjectPoints(markers)]
             center_camera_pos = self.camera.transform.LocalizePosition((0, 0, 0))
 
             def DistanceLine(a, b, width, color, tag_offset=0):
