@@ -456,7 +456,7 @@ class Momentum(Quantity[_V]):
 
 
 disable_CHECK()
-if __name__ == "__main__":
+if __name__ == "__main__" and not TYPE_CHECKING:
     disable_CHECK()
     a = Length() * Mass() / Time() / Mass()
     c = Length() * Mass()  # 1 2
