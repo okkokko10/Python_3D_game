@@ -63,9 +63,11 @@ class WaveGrid:
         self.size = size[0], size[1]
         self.grid = np.zeros((3, *self.size), float)
         "grid[0,x,y] and grid[1,x,y] is the velocity at x,y grid[2,x,y] is the mass"
+        self.decay_grid = np.zeros((3, *self.size), float)
         self.change_ratio = 0.05
         "how much one update changes the board"
         self.addboard: np.ndarray = np.zeros((3, *self.size), float)
+        self.decay_addboard = np.zeros((3, *self.size), float)
         self.ind = np.indices(self.size)
         self.intensity = 16
         self.stickiness = 0
@@ -73,7 +75,10 @@ class WaveGrid:
     def next_frame(self):
 
         self.addboard[...] = 0
-        a1, b1 = random_spread(self.grid[0, :, :] / self.grid[2, :, :], self.grid[1, :, :] / self.grid[2, :, :])
+        self.decay_addboard[...] = 0
+        grid = self.grid + self.decay_grid
+
+        a1, b1 = random_spread(grid[0, :, :] / grid[2, :, :], grid[1, :, :] / grid[2, :, :])
         # toind = ((self.ind[:, :, :] + np.stack((a1, b1), 0)).astype(int) % np.array(self.size)[:, np.newaxis, np.newaxis])
         toind = ((self.ind[0, :, :] + np.round(a1).astype(int)) % self.size[0],
                  (self.ind[1, :, :] + np.round(b1).astype(int)) % self.size[1])
@@ -88,30 +93,40 @@ class WaveGrid:
         # np.add.at(self.addboard[2], (*toind,), self.grid[2])
         values = (self.grid * np.array([1 + self.stickiness, 1 + self.stickiness, 1])[:, np.newaxis, np.newaxis] - self.stickiness *
                   self.grid[2, :, :] * np.stack((a1, b1, np.zeros(a1.shape, float)), axis=0))
+        "values == self.grid if self.stickiness == 0"
+        decay_values = (self.decay_grid * np.array([1 + self.stickiness, 1 + self.stickiness, 1])[:, np.newaxis, np.newaxis] - self.stickiness *
+                        self.decay_grid[2, :, :] * np.stack((a1, b1, np.zeros(a1.shape, float)), axis=0))
         np.add.at(self.addboard.transpose(1, 2, 0), (*toind,), values.transpose(1, 2, 0))
+        np.add.at(self.decay_addboard.transpose(1, 2, 0), (*toind,), decay_values.transpose(1, 2, 0))
 
         # e1 = 1 / (1 + 10 * self.addboard[:, :, 2][:, :, np.newaxis]) - 0.1
         # self.addboard[:, :, 0:2] += self.addboard[:, :, 1::-1] * np.array([1, -1]) * e1
         # self.addboard[:, :, 0:2] /= (e1**2 + 1)**0.5
-        return self.addboard
+        return self.addboard, self.decay_addboard
 
-    def apply(self, addboard: np.ndarray):
+    def apply(self, addboard: np.ndarray, decay_addboard: np.ndarray):
 
-        decay_ratio = 1
         self.grid *= 1 - self.change_ratio
         self.grid[...] += addboard[...] * self.change_ratio
-        self.grid[...] *= decay_ratio
+        # self.grid[...] *= decay_ratio
+
+        decay_ratio = 0.5**self.change_ratio
+        self.decay_grid *= 1 - self.change_ratio
+        self.decay_grid[...] += decay_addboard[...] * self.change_ratio
+        self.decay_grid[...] *= decay_ratio
 
     def Update(self):
         for i in range(1):
-            addboard = self.next_frame()
-            self.apply(addboard)
+            addboard, decay_addboard = self.next_frame()
+            self.apply(addboard, decay_addboard)
 
     def Draw(self):
+
         surface = pygame.surface.Surface(self.size)
         colors = pygame.surfarray.pixels3d(surface)
-        lengths = np.sqrt(self.grid[0, :, :]**2 + self.grid[1, :, :]**2)
-        colors[:, :, 0] = color_map(lengths * self.grid[2, :, :] * 0.1 * self.intensity) * 200
+        lengths = np.sqrt((self.grid[0, :, :] + self.decay_grid[0, :, :])**2 + (self.grid[1, :, :] + self.decay_grid[1, :, :])**2)
+        # colors[:, :, 0] = color_map(lengths * self.grid[2, :, :] * 0.1 * self.intensity) * 200
+        colors[:, :, 0] = color_map(self.decay_grid[2, :, :] * self.intensity) * 255
         colors[:, :, 1] = color_map(self.grid[2, :, :] * self.intensity) * 255
         colors[:, :, 2] = color_map(lengths * 0.1 * self.intensity) * 255
 
@@ -124,7 +139,7 @@ class WaveGrid:
 
 class Scene_1(screenIO.Scene):
     def o_Init(self, updater: 'screenIO.Updater'):
-        a = 8
+        a = 4
         self.waves = WaveGrid(
             np.array(updater.canvas.surface.get_size()) // a)
 
@@ -154,7 +169,9 @@ class Scene_1(screenIO.Scene):
                 return self.brush != 0
             else:
                 return self.brush
-
+        decay_alt = updater.inputs.Pressed("left shift")
+        if decay_alt:
+            self.waves.grid, self.waves.decay_grid = self.waves.decay_grid, self.waves.grid
         try:
             multiplier_motion = 5 if updater.inputs.Pressed("a") else 1
             multiplier_mass = 5 if updater.inputs.Pressed("q") else 1
@@ -203,6 +220,8 @@ class Scene_1(screenIO.Scene):
 
         except ValueError:
             pass
+        if decay_alt:
+            self.waves.grid, self.waves.decay_grid = self.waves.decay_grid, self.waves.grid
         self.waves.Update()
         surface = self.waves.Draw()
 
