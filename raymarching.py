@@ -4,7 +4,8 @@ import math
 
 import pygame
 import orientation2 as oi
-import numpy as np
+import cupy as np
+import numpy
 # import facecamera
 
 # def rays(rotation: oi.Rotation, width: int, height: int):
@@ -15,8 +16,13 @@ import numpy as np
 
 def rays(rotation: oi.Rotation, width: int, height: int, zoom: float, dtype=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     def func(x, y):
-        return rotation @ np.array((x / zoom - 0.5 * width / zoom, y / zoom - 0.5 * height / zoom, 1), dtype=object)
-    x, y, z = np.fromfunction(func, (width, height), dtype=dtype)
+        return rotation @ numpy.array((x / zoom - 0.5 * width / zoom, y / zoom - 0.5 * height / zoom, 1), dtype=object)
+        # return rotation @ (x / zoom - 0.5 * width / zoom), rotation @ (y / zoom - 0.5 * height / zoom), rotation @ 1
+        # x = np.asarray(x)
+        # y = np.asarray(y)
+        # tup = (x / zoom - 0.5 * width / zoom, y / zoom - 0.5 * height / zoom, np.ones(x.shape))
+        # return rotation @ np.stack(tup=tup)
+    x, y, z = map(np.asarray, numpy.fromfunction(func, (width, height), dtype=dtype))
     l = np.sqrt(x**2 + y**2 + z**2, dtype=dtype)
     x /= l
     y /= l
@@ -116,11 +122,11 @@ class RayCamera:
         #                        (np.clip((pos[1] / 4 - 0.5) % 1, 0, 1) * (face.get_height() - 1)).astype(np.uint16)]
 
         isdis = triple((closest_object < 2))
-        colors[:, :, :] = poscol  # np.where(isdis, face_map, poscol)
-        colors[:, :, :] = np.where(triple(distance_to_closest < 1), poscol, 0)
+        colors[:, :, :] = poscol.get()  # np.where(isdis, face_map, poscol)
+        colors[:, :, :] = np.where(triple(distance_to_closest < 1), poscol, 0).get()
         center = self.width // 2, self.height // 2
-        info = ["distance from camera: %s" % round(lengths[center], 5),
-                "coordinates: %s" % [round(pos[i][center], 5) for i in range(3)],
+        info = ["distance from camera: %s" % round(float(lengths[center]), 5),
+                "coordinates: %s" % [round(float(pos[i][center]), 5) for i in range(3)],
                 "color: %s" % colors[center],
                 "closest object: %s" % closest_object[center],
                 "distance to closest object: %s" % distance_to_closest[center],
