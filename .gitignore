@@ -2,7 +2,7 @@ __pycache__
 Test*
 build
 # *.c
-*.pyd
-*.html
+# *.pyd
+# *.html
 # *.h
 ignore*
