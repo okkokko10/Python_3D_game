@@ -41,7 +41,7 @@ def color_map(a: np.ndarray):
 def random_spread(a: np.ndarray, b: np.ndarray):
     "mean should be 1"
     # ra, rb = random.random(), random.random()
-    ra, rb = np.random.rand(*a.shape), np.random.rand(*a.shape)
+    ra, rb = np.random.rand(*a.shape), np.random.rand(*b.shape)
     # ra = rb
     sx, sy = complex_mul(ra, rb, 1, -1)
     # sx = ra + 0.5
@@ -60,7 +60,7 @@ def random_spread(a: np.ndarray, b: np.ndarray):
 
 class WaveGrid:
     def __init__(self, size: tuple[int, int] = (400, 300)):
-        self.size = size[0], size[1]
+        self.size = int(size[0]), int(size[1])
         self.grid = np.zeros((3, *self.size), float)
         "grid[0,x,y] and grid[1,x,y] is the velocity at x,y grid[2,x,y] is the mass"
         self.decay_grid = np.zeros((3, *self.size), float)
@@ -76,9 +76,13 @@ class WaveGrid:
 
         self.addboard[...] = 0
         self.decay_addboard[...] = 0
-        grid = self.grid + self.decay_grid
+        grid = self.grid + self.decay_grid   # * np.array([1, 1, 0])[:, np.newaxis, np.newaxis]
 
-        a1, b1 = random_spread(grid[0, :, :] / grid[2, :, :], grid[1, :, :] / grid[2, :, :])
+        inv_mass = 1 / grid[2]
+        a1, b1 = random_spread(grid[0, :, :] * inv_mass, grid[1, :, :] * inv_mass)
+        # inv_mass_decay = np.random.rand(*self.decay_grid[2].shape) / (self.decay_grid[2] + 0.01)
+        # a1 += self.decay_grid[0] * inv_mass_decay
+        # b1 += self.decay_grid[1] * inv_mass_decay
         # toind = ((self.ind[:, :, :] + np.stack((a1, b1), 0)).astype(int) % np.array(self.size)[:, np.newaxis, np.newaxis])
         toind = ((self.ind[0, :, :] + np.round(a1).astype(int)) % self.size[0],
                  (self.ind[1, :, :] + np.round(b1).astype(int)) % self.size[1])
@@ -110,10 +114,10 @@ class WaveGrid:
         self.grid[...] += addboard[...] * self.change_ratio
         # self.grid[...] *= decay_ratio
 
-        decay_ratio = 0.5**self.change_ratio
+        decay_ratio = 0.5
         self.decay_grid *= 1 - self.change_ratio
-        self.decay_grid[...] += decay_addboard[...] * self.change_ratio
-        self.decay_grid[...] *= decay_ratio
+        self.decay_grid[...] += decay_addboard[...] * (self.change_ratio * decay_ratio)
+        # self.decay_grid[...] *= decay_ratio
 
     def Update(self):
         for i in range(1):
@@ -141,7 +145,7 @@ class Scene_1(screenIO.Scene):
     def o_Init(self, updater: 'screenIO.Updater'):
         a = 4
         self.waves = WaveGrid(
-            np.array(updater.canvas.surface.get_size()) // a)
+            np.array(updater.canvas.surface.get_size(), int) // a)
 
         self.brush_size = 60
 
@@ -159,8 +163,8 @@ class Scene_1(screenIO.Scene):
             mouse_position %= self.waves.size
             # mouse_movement %= self.waves.size
         else:
-            mouse_position = mouse_position * self.waves.size / updater.canvas.surface.get_size()
-            mouse_movement = mouse_movement * self.waves.size / updater.canvas.surface.get_size()
+            mouse_position = mouse_position * np.array(self.waves.size) / np.array(updater.canvas.surface.get_size())
+            mouse_movement = mouse_movement * np.array(self.waves.size) / np.array(updater.canvas.surface.get_size())
 
         # print(mouse_position, mouse_movement)
 
