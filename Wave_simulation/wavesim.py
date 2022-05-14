@@ -143,9 +143,9 @@ class WaveGrid:
 
 class Scene_1(screenIO.Scene):
     def o_Init(self, updater: 'screenIO.Updater'):
-        a = 4
+        pixel_size = 8  # change this to suit your computer's capabilities
         self.waves = WaveGrid(
-            np.array(updater.canvas.surface.get_size(), int) // a)
+            np.array(updater.canvas.surface.get_size(), int) // pixel_size)
 
         self.brush_size = 60
 
